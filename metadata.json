@@ -1,0 +1,7 @@
+{
+  "name": "PowerLog Pro",
+  "description": "A rugged Work Order Management system for Powersports dealerships featuring AI-powered diagnostic suggestions and mobile-optimized status tracking.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
