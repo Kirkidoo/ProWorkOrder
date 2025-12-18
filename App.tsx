@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { WorkOrder, ViewState, VehicleType, WorkOrderStatus, InventoryItem, Customer, PartsOrder, OrderStatus, Vehicle, Appointment, AppointmentType } from './types';
+import { WorkOrder, ViewState, VehicleType, WorkOrderStatus, InventoryItem, Customer, PartsOrder, OrderStatus, Vehicle, Appointment, AppointmentType, Vendor, ModelSchematic } from './types';
 import { CommandCenter } from './components/CommandCenter';
 import { Dashboard } from './components/Dashboard';
 import { WorkOrderForm } from './components/WorkOrderForm';
@@ -8,8 +8,21 @@ import { WorkOrderDetail } from './components/WorkOrderDetail';
 import { InventoryPage } from './components/InventoryPage';
 import { CustomerPage } from './components/CustomerPage';
 import { PartsOrderPage } from './components/PartsOrderPage';
+import { VendorPage } from './components/VendorPage';
 import { CalendarView } from './components/CalendarView';
 import { ArchivePage } from './components/ArchivePage';
+import { SchematicsLibrary } from './components/SchematicsLibrary';
+
+const MOCK_VENDORS: Vendor[] = [
+  { id: 'v1', name: 'WPS', accountNumber: '12345', contactPerson: 'Gary @ WPS', freeShippingThreshold: 500 },
+  { id: 'v2', name: 'Parts Unlimited', accountNumber: 'PU-998', contactPerson: 'Sarah S.', freeShippingThreshold: 750 },
+  { id: 'v3', name: 'OEM Honda', accountNumber: 'HOND-001', contactPerson: 'Direct Rep', freeShippingThreshold: 250 },
+];
+
+const MOCK_SCHEMATICS: ModelSchematic[] = [
+  { id: 's1', year: '2023', make: 'Honda', model: 'TRX450R', vehicleType: VehicleType.ATV, diagramUrl: 'https://images.unsplash.com/photo-1558981403-c5f91cbba527?auto=format&fit=crop&q=80&w=800' },
+  { id: 's2', year: '2024', make: 'Yamaha', model: 'YZ250F', vehicleType: VehicleType.BIKE, diagramUrl: 'https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=800' },
+];
 
 const MOCK_CUSTOMERS: Customer[] = [
   {
@@ -40,10 +53,10 @@ const MOCK_CUSTOMERS: Customer[] = [
 ];
 
 const MOCK_INVENTORY: InventoryItem[] = [
-  { id: 'i1', partNumber: '15410-MFJ-D01', description: 'Oil Filter (Honda)', category: 'Fluids', brand: 'OEM', quantityOnHand: 15, minStock: 5, unitPrice: 14.95, binLocation: 'Shelf A-4' },
-  { id: 'i2', partNumber: 'CPR8EA-9', description: 'NGK Spark Plug', category: 'Electrical', brand: 'OEM', quantityOnHand: 2, minStock: 10, unitPrice: 8.50, binLocation: 'Shelf B-2' },
-  { id: 'i3', partNumber: 'TY-120-17', description: 'Front Tire 120/70ZR17', category: 'Tires', brand: 'Aftermarket', quantityOnHand: 4, minStock: 2, unitPrice: 189.99, binLocation: 'Rack 1' },
-  { id: 'i4', partNumber: 'YUAM3220LB', description: 'YTX20HL Battery', category: 'Electrical', brand: 'Aftermarket', quantityOnHand: 0, minStock: 3, unitPrice: 145.00, binLocation: 'Shelf C-1' },
+  { id: 'i1', partNumber: '15410-MFJ-D01', description: 'Oil Filter (Honda)', category: 'Fluids', brand: 'OEM', preferredVendor: 'OEM Honda', quantityOnHand: 15, minStock: 5, unitPrice: 14.95, binLocation: 'Shelf A-4' },
+  { id: 'i2', partNumber: 'CPR8EA-9', description: 'NGK Spark Plug', category: 'Electrical', brand: 'OEM', preferredVendor: 'WPS', quantityOnHand: 2, minStock: 10, unitPrice: 8.50, binLocation: 'Shelf B-2' },
+  { id: 'i3', partNumber: 'TY-120-17', description: 'Front Tire 120/70ZR17', category: 'Tires', brand: 'Aftermarket', preferredVendor: 'Parts Unlimited', quantityOnHand: 4, minStock: 2, unitPrice: 189.99, binLocation: 'Rack 1' },
+  { id: 'i4', partNumber: 'YUAM3220LB', description: 'YTX20HL Battery', category: 'Electrical', brand: 'Aftermarket', preferredVendor: 'WPS', quantityOnHand: 0, minStock: 3, unitPrice: 145.00, binLocation: 'Shelf C-1' },
 ];
 
 const MOCK_ORDERS: WorkOrder[] = [
@@ -71,37 +84,7 @@ const MOCK_ORDERS: WorkOrder[] = [
     ],
     images: ['https://picsum.photos/seed/atv/600/400'],
     createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    orderNumber: 'WO-1000',
-    customerId: 'c2',
-    customerName: 'Sarah Miller',
-    phone: '555-987-6543',
-    vin: 'YZ250-8839210',
-    year: '2024',
-    make: 'Yamaha',
-    model: 'YZ250F',
-    vehicleType: VehicleType.BIKE,
-    customerConcern: 'Break-in service and chain adjustment.',
-    status: WorkOrderStatus.PICKED_UP,
-    notes: [
-      { id: 'n2', timestamp: '2024-06-01 14:00', author: 'Shop Mechanic', content: 'Service completed. Unit picked up by customer.' }
-    ],
-    parts: [
-      { id: 'p2', partNumber: '15410-MFJ-D01', description: 'Oil Filter (Honda)', price: 14.95, quantity: 1 }
-    ],
-    laborEntries: [
-      { id: 'l2', technician: 'Brad', description: 'First Service', hours: 1.5, rate: 125, timestamp: '2024-06-01' }
-    ],
-    images: [],
-    createdAt: '2024-06-01T10:00:00.000Z',
   }
-];
-
-const MOCK_APPOINTMENTS: Appointment[] = [
-  { id: 'a1', customerName: 'Brad Peterson', phone: '555-123-4567', vehicleInfo: '2023 Honda TRX450R', type: AppointmentType.STANDARD, startTime: new Date().toISOString(), durationMinutes: 120, notes: 'Oil change and chain tension check.' },
-  { id: 'a2', customerName: 'Sarah Miller', phone: '555-987-6543', vehicleInfo: '2024 Yamaha YZ250F', type: AppointmentType.EMERGENCY, startTime: new Date(Date.now() + 3600000 * 2).toISOString(), durationMinutes: 60, notes: 'Hard starting after wash.' }
 ];
 
 const App: React.FC = () => {
@@ -109,8 +92,10 @@ const App: React.FC = () => {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(MOCK_ORDERS);
   const [inventory, setInventory] = useState<InventoryItem[]>(MOCK_INVENTORY);
   const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
+  const [vendors, setVendors] = useState<Vendor[]>(MOCK_VENDORS);
+  const [schematics, setSchematics] = useState<ModelSchematic[]>(MOCK_SCHEMATICS);
   const [partsOrders, setPartsOrders] = useState<PartsOrder[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>(MOCK_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [prepopulatedOrder, setPrepopulatedOrder] = useState<Partial<WorkOrder> | null>(null);
 
@@ -124,7 +109,10 @@ const App: React.FC = () => {
       type: data.vehicleType || VehicleType.BIKE
     };
 
+    const today = new Date().toLocaleDateString();
+
     if (!targetCustomerId) {
+      // Create new customer if not selected
       const newCustomerId = 'c-' + Math.random().toString(36).substr(2, 9);
       const newCustomer: Customer = {
         id: newCustomerId,
@@ -133,19 +121,21 @@ const App: React.FC = () => {
         email: '',
         address: '',
         preferredContact: 'Call',
-        lastVisit: new Date().toLocaleDateString(),
+        lastVisit: today,
         fleet: [vehicle]
       };
       setCustomers([...customers, newCustomer]);
       targetCustomerId = newCustomerId;
     } else {
-      setCustomers(customers.map(c => {
+      // Update existing customer profile
+      setCustomers(prev => prev.map(c => {
         if (c.id === targetCustomerId) {
-          const vinExists = c.fleet.some(v => v.vin === vehicle.vin);
+          // Check if vehicle already exists in fleet by VIN
+          const vehicleExists = c.fleet.some(v => v.vin.toLowerCase() === vehicle.vin.toLowerCase());
           return {
             ...c,
-            lastVisit: new Date().toLocaleDateString(),
-            fleet: vinExists ? c.fleet : [...c.fleet, vehicle]
+            lastVisit: today,
+            fleet: vehicleExists ? c.fleet : [...c.fleet, vehicle]
           };
         }
         return c;
@@ -170,23 +160,37 @@ const App: React.FC = () => {
   };
 
   const handleUpdateOrder = (updatedOrder: WorkOrder) => {
-    const oldOrder = workOrders.find(o => o.id === updatedOrder.id);
-    const isNowCompleted = (updatedOrder.status === WorkOrderStatus.READY || updatedOrder.status === WorkOrderStatus.PICKED_UP) && 
-                           (oldOrder?.status !== WorkOrderStatus.READY && oldOrder?.status !== WorkOrderStatus.PICKED_UP);
-
-    if (isNowCompleted) {
-      const newInventory = [...inventory];
-      updatedOrder.parts.forEach(part => {
-        const invItem = newInventory.find(i => i.partNumber === part.partNumber);
-        if (invItem) {
-          invItem.quantityOnHand = Math.max(0, invItem.quantityOnHand - part.quantity);
-        }
-      });
-      setInventory(newInventory);
-    }
-
     setWorkOrders(workOrders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
     setSelectedOrder(updatedOrder);
+  };
+
+  const handleAddPartsOrder = (order: Omit<PartsOrder, 'id'>) => {
+    const newOrder: PartsOrder = { ...order, id: Math.random().toString(36).substr(2, 9) };
+    setPartsOrders([newOrder, ...partsOrders]);
+  };
+
+  const handleBulkOrdered = (vendorName: string) => {
+    const now = new Date().toLocaleDateString();
+    setPartsOrders(prev => prev.map(o => {
+      if (o.vendor === vendorName && o.status === OrderStatus.TO_ORDER) {
+        return { ...o, status: OrderStatus.PENDING, dateOrdered: now };
+      }
+      return o;
+    }));
+    alert(`All items for ${vendorName} moved to PENDING status.`);
+  };
+
+  const handleUpdatePartsOrder = (updatedPartsOrder: PartsOrder) => {
+    setPartsOrders(partsOrders.map(o => o.id === updatedPartsOrder.id ? updatedPartsOrder : o));
+    
+    if (updatedPartsOrder.status === OrderStatus.RECEIVED && updatedPartsOrder.workOrderNumber) {
+      setWorkOrders(prev => prev.map(wo => {
+        if (wo.orderNumber === updatedPartsOrder.workOrderNumber) {
+          return { ...wo, partsReceived: true };
+        }
+        return wo;
+      }));
+    }
   };
 
   const handleAddAppointment = (data: Omit<Appointment, 'id'>) => {
@@ -199,13 +203,9 @@ const App: React.FC = () => {
   };
 
   const handleConvertAppointmentToWorkOrder = (apt: Appointment) => {
-    const parts = apt.vehicleInfo.split(' ');
     setPrepopulatedOrder({
       customerName: apt.customerName,
       phone: apt.phone,
-      year: parts[0] || '',
-      make: parts[1] || '',
-      model: parts.slice(2).join(' ') || '',
       customerConcern: apt.notes || `Scheduled as ${apt.type}`,
     });
     setAppointments(appointments.filter(a => a.id !== apt.id));
@@ -219,6 +219,15 @@ const App: React.FC = () => {
 
   const handleUpdateInventory = (item: InventoryItem) => {
     setInventory(inventory.map(i => i.id === item.id ? item : i));
+  };
+
+  const handleAddVendor = (data: Omit<Vendor, 'id'>) => {
+    const newVendor: Vendor = { ...data, id: Math.random().toString(36).substr(2, 9) };
+    setVendors([...vendors, newVendor]);
+  };
+
+  const handleUpdateVendor = (v: Vendor) => {
+    setVendors(vendors.map(old => old.id === v.id ? v : old));
   };
 
   const handleAddCustomer = (data: Omit<Customer, 'id'>) => {
@@ -240,6 +249,11 @@ const App: React.FC = () => {
     setView('CREATE');
   };
 
+  const handleAddSchematic = (data: Omit<ModelSchematic, 'id'>) => {
+    const newSchem: ModelSchematic = { ...data, id: Math.random().toString(36).substr(2, 9) };
+    setSchematics([...schematics, newSchem]);
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-orange-500 selection:text-white flex flex-col overflow-hidden">
       <nav className="bg-zinc-900 border-b-2 border-orange-600 sticky top-0 z-50 px-6 py-4 shadow-2xl shrink-0">
@@ -253,13 +267,14 @@ const App: React.FC = () => {
             </div>
             <span className="text-2xl font-rugged tracking-tighter uppercase">PowerLog <span className="text-orange-600">Pro</span></span>
           </div>
-          <div className="hidden md:flex items-center gap-6">
-             <button onClick={() => setView('COMMAND_CENTER')} className={`font-bold uppercase text-xs tracking-widest transition-colors ${view === 'COMMAND_CENTER' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Command</button>
-             <button onClick={() => setView('DASHBOARD')} className={`font-bold uppercase text-xs tracking-widest transition-colors ${view === 'DASHBOARD' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Grid View</button>
-             <button onClick={() => setView('INVENTORY')} className={`font-bold uppercase text-xs tracking-widest transition-colors ${view === 'INVENTORY' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Inventory</button>
-             <button onClick={() => setView('ORDERS')} className={`font-bold uppercase text-xs tracking-widest transition-colors ${view === 'ORDERS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Parts</button>
-             <button onClick={() => setView('CUSTOMERS')} className={`font-bold uppercase text-xs tracking-widest transition-colors ${view === 'CUSTOMERS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Clients</button>
-             <button onClick={() => setView('ARCHIVE')} className={`font-bold uppercase text-xs tracking-widest transition-colors ${view === 'ARCHIVE' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>History</button>
+          <div className="hidden md:flex items-center gap-4">
+             <button onClick={() => setView('COMMAND_CENTER')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'COMMAND_CENTER' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Command</button>
+             <button onClick={() => setView('DASHBOARD')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'DASHBOARD' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Grid</button>
+             <button onClick={() => setView('INVENTORY')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'INVENTORY' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Inventory</button>
+             <button onClick={() => setView('ORDERS')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'ORDERS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Parts</button>
+             <button onClick={() => setView('SCHEMATICS')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'SCHEMATICS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Library</button>
+             <button onClick={() => setView('CUSTOMERS')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'CUSTOMERS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Clients</button>
+             <button onClick={() => setView('ARCHIVE')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'ARCHIVE' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>History</button>
           </div>
         </div>
       </nav>
@@ -314,7 +329,11 @@ const App: React.FC = () => {
             <WorkOrderDetail 
               order={selectedOrder} 
               inventory={inventory}
+              vendors={vendors}
+              schematics={schematics}
               onUpdate={handleUpdateOrder} 
+              onSpecialOrder={handleAddPartsOrder}
+              onAddSchematic={handleAddSchematic}
               onBack={() => { setView('COMMAND_CENTER'); setSelectedOrder(null); }}
             />
           </div>
@@ -326,6 +345,16 @@ const App: React.FC = () => {
               inventory={inventory}
               onUpdateInventory={handleUpdateInventory}
               onAddInventory={handleAddInventory}
+              onBack={() => setView('COMMAND_CENTER')}
+            />
+          </div>
+        )}
+
+        {view === 'SCHEMATICS' && (
+          <div className="overflow-y-auto h-full scrollbar-thin">
+            <SchematicsLibrary 
+              schematics={schematics}
+              onAddSchematic={handleAddSchematic}
               onBack={() => setView('COMMAND_CENTER')}
             />
           </div>
@@ -347,8 +376,22 @@ const App: React.FC = () => {
           <div className="overflow-y-auto h-full scrollbar-thin">
             <PartsOrderPage 
               orders={partsOrders}
-              onUpdateOrder={(o) => setPartsOrders(partsOrders.map(x => x.id === o.id ? o : x))}
-              onAddOrder={(o) => setPartsOrders([...partsOrders, {...o, id: Math.random().toString(36).substr(2, 9)}])}
+              vendors={vendors}
+              inventory={inventory}
+              onUpdateOrder={handleUpdatePartsOrder}
+              onAddOrder={handleAddPartsOrder}
+              onBulkOrdered={handleBulkOrdered}
+              onBack={() => setView('COMMAND_CENTER')}
+            />
+          </div>
+        )}
+
+        {view === 'VENDORS' && (
+          <div className="overflow-y-auto h-full scrollbar-thin">
+            <VendorPage 
+              vendors={vendors}
+              onAddVendor={handleAddVendor}
+              onUpdateVendor={handleUpdateVendor}
               onBack={() => setView('COMMAND_CENTER')}
             />
           </div>
@@ -373,13 +416,13 @@ const App: React.FC = () => {
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
             <span className="text-[10px] font-bold uppercase mt-1">Grid</span>
           </button>
-          <button onClick={() => setView('ARCHIVE')} className={`${view === 'ARCHIVE' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
-             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            <span className="text-[10px] font-bold uppercase mt-1">Hist</span>
+          <button onClick={() => setView('ORDERS')} className={`${view === 'ORDERS' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <span className="text-[10px] font-bold uppercase mt-1">Parts</span>
           </button>
           <button onClick={() => { setPrepopulatedOrder(null); setView('CREATE'); }} className="text-zinc-500 flex flex-col items-center">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            <span className="text-[10px] font-bold uppercase mt-1">New</span>
+             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+            <span className="text-[10px] font-bold uppercase mt-1">Intake</span>
           </button>
       </div>
     </div>

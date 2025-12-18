@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { WorkOrder, VehicleType, WorkOrderStatus, Customer } from '../types';
+import { WorkOrder, VehicleType, WorkOrderStatus, Customer, InspectionChecklist, Vehicle } from '../types';
 import { Button } from './Button';
+import { VEHICLE_ICONS } from '../constants';
 
 interface WorkOrderFormProps {
   onSubmit: (order: Partial<WorkOrder>) => void;
@@ -22,10 +23,18 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
     vehicleType: VehicleType.BIKE,
     customerConcern: '',
     status: WorkOrderStatus.NEW,
+    inspection: {
+      tires: false,
+      fluids: false,
+      battery: false,
+      brakes: false,
+      lights: false
+    }
   });
 
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerResults, setShowCustomerResults] = useState(false);
+  const [isAddingNewUnit, setIsAddingNewUnit] = useState(false);
 
   const filteredCustomers = useMemo(() => {
     if (!customerSearch) return [];
@@ -35,21 +44,65 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
     ).slice(0, 5);
   }, [customers, customerSearch]);
 
+  const currentCustomer = useMemo(() => {
+    return customers.find(c => c.id === formData.customerId);
+  }, [customers, formData.customerId]);
+
   useEffect(() => {
     if (initialData) {
       setFormData(prev => ({ ...prev, ...initialData }));
+      // If we are prepopulating with data that includes a customerId, but no VIN,
+      // it means we probably want to see the fleet.
+      if (initialData.customerId && !initialData.vin) {
+        setIsAddingNewUnit(false);
+      }
     }
   }, [initialData]);
+
+  // VIN Auto-fill logic
+  useEffect(() => {
+    if (currentCustomer && formData.vin && !formData.year) {
+      const match = currentCustomer.fleet.find(v => v.vin.toLowerCase() === formData.vin?.toLowerCase());
+      if (match) {
+        setFormData(prev => ({
+          ...prev,
+          year: match.year,
+          make: match.make,
+          model: match.model,
+          vehicleType: match.type
+        }));
+      }
+    }
+  }, [formData.vin, currentCustomer]);
 
   const handleSelectCustomer = (customer: Customer) => {
     setFormData(prev => ({
       ...prev,
       customerName: customer.name,
       phone: customer.phone,
-      customerId: customer.id
+      customerId: customer.id,
+      // Clear unit fields when changing customer
+      vin: '',
+      year: '',
+      make: '',
+      model: '',
+      vehicleType: VehicleType.BIKE
     }));
     setCustomerSearch('');
     setShowCustomerResults(false);
+    setIsAddingNewUnit(false);
+  };
+
+  const handleSelectVehicle = (vehicle: Vehicle) => {
+    setFormData(prev => ({
+      ...prev,
+      year: vehicle.year,
+      make: vehicle.make,
+      model: vehicle.model,
+      vin: vehicle.vin,
+      vehicleType: vehicle.type
+    }));
+    setIsAddingNewUnit(false);
   };
 
   const handleClearCustomer = () => {
@@ -57,7 +110,23 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
       ...prev,
       customerName: '',
       phone: '',
-      customerId: ''
+      customerId: '',
+      vin: '',
+      year: '',
+      make: '',
+      model: '',
+      vehicleType: VehicleType.BIKE
+    }));
+    setIsAddingNewUnit(false);
+  };
+
+  const toggleInspection = (key: keyof InspectionChecklist) => {
+    setFormData(prev => ({
+      ...prev,
+      inspection: {
+        ...prev.inspection!,
+        [key]: !prev.inspection![key]
+      }
     }));
   };
 
@@ -76,7 +145,7 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-12">
         {/* Customer Info */}
         <section className="space-y-6">
           <div className="flex justify-between items-end">
@@ -172,60 +241,128 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
 
         {/* Unit Info */}
         <section className="space-y-6">
-          <h3 className="text-orange-500 font-rugged text-xl uppercase tracking-wider">Unit Specs</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Year</label>
-              <input 
-                required
-                className={inputClasses}
-                placeholder="2024"
-                value={formData.year}
-                onChange={e => setFormData({ ...formData, year: e.target.value })}
-              />
+          <div className="flex justify-between items-end">
+             <h3 className="text-orange-500 font-rugged text-xl uppercase tracking-wider">Unit Specs</h3>
+             {formData.customerId && !isAddingNewUnit && (
+               <button 
+                type="button" 
+                onClick={() => setIsAddingNewUnit(true)}
+                className="text-[10px] font-bold text-emerald-500 uppercase hover:text-emerald-400 transition-colors"
+               >
+                 [+ Add New Vehicle]
+               </button>
+             )}
+          </div>
+
+          {currentCustomer && !isAddingNewUnit && (
+            <div className="space-y-4">
+               <label className={labelClasses}>Select from Saved Vehicles</label>
+               <div className="grid grid-cols-1 gap-3">
+                 {currentCustomer.fleet.map((v, i) => (
+                   <div 
+                    key={i} 
+                    onClick={() => handleSelectVehicle(v)}
+                    className={`bg-zinc-900 border-2 p-4 rounded-sm flex items-center gap-4 transition-all cursor-pointer group ${formData.vin === v.vin ? 'border-orange-500' : 'border-zinc-800 hover:border-zinc-700'}`}
+                   >
+                     <div className={`p-3 bg-zinc-950 rounded-sm ${formData.vin === v.vin ? 'text-orange-500' : 'text-zinc-500 group-hover:text-orange-400'}`}>
+                       {VEHICLE_ICONS[v.type]}
+                     </div>
+                     <div>
+                       <div className="font-bold text-zinc-100 uppercase">{v.year} {v.make}</div>
+                       <div className="text-sm text-zinc-400 uppercase">{v.model}</div>
+                       <div className="text-[10px] font-mono text-zinc-600 mt-1">VIN: {v.vin}</div>
+                     </div>
+                   </div>
+                 ))}
+                 {currentCustomer.fleet.length === 0 && (
+                   <div className="p-4 bg-zinc-900/40 border border-zinc-800 border-dashed text-center text-zinc-600 text-[10px] font-bold uppercase">No vehicles in fleet. Add one below.</div>
+                 )}
+               </div>
             </div>
-            <div>
-              <label className={labelClasses}>Make</label>
-              <input 
-                required
-                className={inputClasses}
-                placeholder="Honda"
-                value={formData.make}
-                onChange={e => setFormData({ ...formData, make: e.target.value })}
-              />
+          )}
+
+          {(isAddingNewUnit || !formData.customerId) && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+               <div>
+                  <label className={labelClasses}>VIN / Serial Number</label>
+                  <input 
+                    required
+                    className={inputClasses + " font-mono"}
+                    placeholder="1HFSC..."
+                    value={formData.vin}
+                    onChange={e => setFormData({ ...formData, vin: e.target.value })}
+                  />
+                  {currentCustomer && (
+                    <p className="text-[9px] text-zinc-600 font-bold mt-1 uppercase">Typing an existing VIN will auto-fill unit specs</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClasses}>Year</label>
+                    <input 
+                      required
+                      className={inputClasses}
+                      placeholder="2024"
+                      value={formData.year}
+                      onChange={e => setFormData({ ...formData, year: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Make</label>
+                    <input 
+                      required
+                      className={inputClasses}
+                      placeholder="Honda"
+                      value={formData.make}
+                      onChange={e => setFormData({ ...formData, make: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClasses}>Model</label>
+                  <input 
+                    required
+                    className={inputClasses}
+                    placeholder="CBR 1000RR"
+                    value={formData.model}
+                    onChange={e => setFormData({ ...formData, model: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className={labelClasses}>Unit Type</label>
+                  <select 
+                    className={inputClasses}
+                    value={formData.vehicleType}
+                    onChange={e => setFormData({ ...formData, vehicleType: e.target.value as VehicleType })}
+                  >
+                    {Object.values(VehicleType).map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                {formData.customerId && (
+                  <Button variant="ghost" size="sm" onClick={() => setIsAddingNewUnit(false)} fullWidth>Cancel New Vehicle Entry</Button>
+                )}
             </div>
-          </div>
-          <div>
-            <label className={labelClasses}>Model</label>
-            <input 
-              required
-              className={inputClasses}
-              placeholder="CBR 1000RR"
-              value={formData.model}
-              onChange={e => setFormData({ ...formData, model: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className={labelClasses}>VIN / Serial Number</label>
-            <input 
-              required
-              className={inputClasses + " font-mono"}
-              placeholder="1HFSC..."
-              value={formData.vin}
-              onChange={e => setFormData({ ...formData, vin: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className={labelClasses}>Unit Type</label>
-            <select 
-              className={inputClasses}
-              value={formData.vehicleType}
-              onChange={e => setFormData({ ...formData, vehicleType: e.target.value as VehicleType })}
-            >
-              {Object.values(VehicleType).map(v => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
+          )}
+        </section>
+
+        {/* Quick Inspection */}
+        <section className="md:col-span-2 bg-zinc-900/40 p-6 border-2 border-zinc-800 rounded-sm">
+          <h3 className="text-emerald-500 font-rugged text-xl uppercase tracking-wider mb-6">Quick Safety Inspection</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {(Object.keys(formData.inspection!) as Array<keyof InspectionChecklist>).map((key) => (
+              <label key={key} className={`flex flex-col items-center justify-center p-4 border-2 transition-all cursor-pointer rounded-sm ${formData.inspection![key] ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600'}`}>
+                <input 
+                  type="checkbox" 
+                  className="hidden" 
+                  checked={formData.inspection![key]} 
+                  onChange={() => toggleInspection(key)}
+                />
+                <span className="text-[10px] font-black uppercase tracking-widest">{key}</span>
+                <span className="mt-2 text-xl font-bold">{formData.inspection![key] ? 'PASS' : '---'}</span>
+              </label>
+            ))}
           </div>
         </section>
 

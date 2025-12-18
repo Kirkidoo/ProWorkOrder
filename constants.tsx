@@ -2,7 +2,25 @@
 import React from 'react';
 import { WorkOrderStatus, VehicleType, AppointmentType } from './types';
 
+export const SHOP_NAME = "PowerLog Pro Shop";
 export const DEFAULT_SHOP_RATE = 125;
+
+export const COMMON_LABOR_TASKS = [
+  'Diagnostic Fee',
+  'Oil & Filter Change',
+  'Tire Mount & Balance',
+  'Chain Adjustment & Lube',
+  'Valve Clearance Check',
+  'Brake Fluid Flush',
+  'Coolant Pressure Test',
+  'Battery Replacement',
+  'Carburetor Clean/Rebuild',
+  'Fuel System Service',
+  'Suspension Tuning',
+  'Electrical Troubleshooting',
+  'Winterization Package',
+  'Pre-Season Inspection'
+];
 
 export const STATUS_COLORS: Record<WorkOrderStatus, string> = {
   [WorkOrderStatus.NEW]: 'bg-blue-500 text-white',

@@ -21,6 +21,30 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
     );
   }, [workOrders]);
 
+  const dailySummary = useMemo(() => {
+    const today = new Date().toLocaleDateString();
+    const todayOrders = archivedOrders.filter(wo => {
+      // In a real app we'd use a dedicated 'completedDate'
+      // For now we check if it was created recently or just use current session data
+      const woDate = new Date(wo.createdAt).toLocaleDateString();
+      return woDate === today;
+    });
+
+    let totalLaborHours = 0;
+    let totalPartsRev = 0;
+    
+    todayOrders.forEach(wo => {
+      totalLaborHours += wo.laborEntries.reduce((s, l) => s + l.hours, 0);
+      totalPartsRev += wo.parts.reduce((s, p) => s + (p.price * p.quantity), 0);
+    });
+
+    return {
+      hours: totalLaborHours.toFixed(1),
+      revenue: totalPartsRev.toFixed(2),
+      completed: todayOrders.length
+    };
+  }, [archivedOrders]);
+
   const filteredOrders = useMemo(() => {
     return archivedOrders.filter(wo => {
       const searchLower = search.toLowerCase();
@@ -69,7 +93,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-rugged text-orange-500 uppercase">Service Archive</h1>
@@ -84,77 +108,99 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
         </div>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm shadow-xl space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">Advanced Lookup</label>
-            <input 
-              className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 uppercase font-bold text-sm rounded-sm"
-              placeholder="Search Name, VIN, WO#, or Model..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">From</label>
-            <input 
-              type="date"
-              className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 text-sm rounded-sm"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">To</label>
-            <input 
-              type="date"
-              className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 text-sm rounded-sm"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Daily Summary Card */}
+        <div className="lg:col-span-1 bg-zinc-900 border-2 border-emerald-600/50 p-6 rounded-sm shadow-xl">
+           <h3 className="text-emerald-500 font-rugged text-xl uppercase mb-4 border-b border-emerald-900/50 pb-2">Today's Summary</h3>
+           <div className="space-y-4">
+              <div>
+                 <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Units Completed</div>
+                 <div className="text-3xl font-rugged text-zinc-100">{dailySummary.completed}</div>
+              </div>
+              <div>
+                 <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Labor Hours Billed</div>
+                 <div className="text-3xl font-rugged text-zinc-100">{dailySummary.hours} HRS</div>
+              </div>
+              <div>
+                 <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Parts Revenue</div>
+                 <div className="text-3xl font-rugged text-orange-500">${dailySummary.revenue}</div>
+              </div>
+           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-sm border border-zinc-800">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-widest font-bold">
-              <tr>
-                <th className="px-6 py-4">Order #</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-6 py-4">Vehicle</th>
-                <th className="px-6 py-4 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800">
-              {filteredOrders.length === 0 ? (
+        {/* Filter and List */}
+        <div className="lg:col-span-3 bg-zinc-900 border border-zinc-800 p-6 rounded-sm shadow-xl space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">Advanced Lookup</label>
+              <input 
+                className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 uppercase font-bold text-sm rounded-sm"
+                placeholder="Search Name, VIN, WO#, or Model..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">From</label>
+              <input 
+                type="date"
+                className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 text-sm rounded-sm"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">To</label>
+              <input 
+                type="date"
+                className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 text-sm rounded-sm"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-sm border border-zinc-800">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-widest font-bold">
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-zinc-600 italic">No archived records found.</td>
+                  <th className="px-6 py-4">Order #</th>
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Customer</th>
+                  <th className="px-6 py-4">Vehicle</th>
+                  <th className="px-6 py-4 text-right">Total</th>
                 </tr>
-              ) : (
-                filteredOrders.map((wo) => (
-                  <tr 
-                    key={wo.id} 
-                    className="hover:bg-zinc-800/30 transition-colors cursor-pointer group opacity-75 hover:opacity-100"
-                    onClick={() => setSelectedOrder(wo)}
-                  >
-                    <td className="px-6 py-4 font-mono font-bold text-orange-500">{wo.orderNumber}</td>
-                    <td className="px-6 py-4 text-sm text-zinc-400">{new Date(wo.createdAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-zinc-200 uppercase">{wo.customerName}</div>
-                      <div className="text-[10px] text-zinc-600 font-mono uppercase">VIN: {wo.vin}</div>
-                    </td>
-                    <td className="px-6 py-4 text-zinc-300">
-                      {wo.year} {wo.make} {wo.model}
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono font-bold text-white">
-                      ${calculateTotal(wo)}
-                    </td>
+              </thead>
+              <tbody className="divide-y divide-zinc-800">
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-zinc-600 italic">No archived records found.</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredOrders.map((wo) => (
+                    <tr 
+                      key={wo.id} 
+                      className="hover:bg-zinc-800/30 transition-colors cursor-pointer group opacity-75 hover:opacity-100"
+                      onClick={() => setSelectedOrder(wo)}
+                    >
+                      <td className="px-6 py-4 font-mono font-bold text-orange-500">{wo.orderNumber}</td>
+                      <td className="px-6 py-4 text-sm text-zinc-400">{new Date(wo.createdAt).toLocaleDateString()}</td>
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-zinc-200 uppercase">{wo.customerName}</div>
+                        <div className="text-[10px] text-zinc-600 font-mono uppercase">VIN: {wo.vin}</div>
+                      </td>
+                      <td className="px-6 py-4 text-zinc-300">
+                        {wo.year} {wo.make} {wo.model}
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono font-bold text-white">
+                        ${calculateTotal(wo)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

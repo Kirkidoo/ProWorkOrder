@@ -12,6 +12,7 @@ interface InventoryPageProps {
 
 const CATEGORIES = ['Engine', 'Tires', 'Electrical', 'Suspension', 'Fluids', 'Body', 'Misc'];
 const BRANDS = ['OEM', 'Aftermarket'];
+const VENDORS = ['WPS', 'Parts Unlimited', 'Tucker', 'OEM Honda', 'OEM Yamaha', 'OEM Kawasaki', 'Parts Unlimited', 'Specialty'];
 
 export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdateInventory, onAddInventory, onBack }) => {
   const [search, setSearch] = useState('');
@@ -101,7 +102,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdat
             <thead>
               <tr className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-widest font-bold border-b border-zinc-800">
                 <th className="px-6 py-4">Part Details</th>
-                <th className="px-6 py-4">Brand/Cat</th>
+                <th className="px-6 py-4">Preferred Vendor</th>
                 <th className="px-6 py-4">Location</th>
                 <th className="px-6 py-4">Qty on Hand</th>
                 <th className="px-6 py-4 text-right">Unit Price</th>
@@ -124,13 +125,13 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdat
                       <td className="px-6 py-4">
                         <div className="font-mono text-orange-500 font-bold">{item.partNumber}</div>
                         <div className="text-sm text-zinc-300 font-medium">{item.description}</div>
+                        <div className="text-[10px] uppercase text-zinc-500 tracking-widest">{item.category} • {item.brand}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-xs font-bold uppercase tracking-tight text-zinc-100">{item.brand}</div>
-                        <div className="text-[10px] uppercase text-zinc-500 tracking-widest">{item.category}</div>
+                        <span className="text-xs font-bold uppercase text-zinc-400 bg-zinc-800 px-2 py-1 rounded-sm">{item.preferredVendor}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="bg-zinc-800 px-2 py-1 rounded text-[10px] font-bold text-zinc-400">{item.binLocation}</span>
+                        <span className="bg-zinc-800/50 px-2 py-1 rounded text-[10px] font-bold text-zinc-500 border border-zinc-800">{item.binLocation}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
@@ -174,6 +175,7 @@ const InventoryModal = ({ item, onSave, onClose }: { item: InventoryItem | null,
     description: item?.description || '',
     category: item?.category || CATEGORIES[0],
     brand: item?.brand || BRANDS[0],
+    preferredVendor: item?.preferredVendor || VENDORS[0],
     quantityOnHand: item?.quantityOnHand || 0,
     minStock: item?.minStock || 5,
     unitPrice: item?.unitPrice || 0,
@@ -194,8 +196,10 @@ const InventoryModal = ({ item, onSave, onClose }: { item: InventoryItem | null,
             <input required className={inputClasses} value={formData.partNumber} onChange={e => setFormData({...formData, partNumber: e.target.value})} />
           </div>
           <div className="col-span-1">
-            <label className={labelClasses}>Bin Location</label>
-            <input required className={inputClasses} value={formData.binLocation} onChange={e => setFormData({...formData, binLocation: e.target.value})} />
+            <label className={labelClasses}>Preferred Vendor</label>
+            <select className={inputClasses} value={formData.preferredVendor} onChange={e => setFormData({...formData, preferredVendor: e.target.value})}>
+              {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
           </div>
           <div className="col-span-2">
             <label className={labelClasses}>Description</label>
@@ -218,10 +222,14 @@ const InventoryModal = ({ item, onSave, onClose }: { item: InventoryItem | null,
             <input required type="number" className={inputClasses} value={formData.quantityOnHand} onChange={e => setFormData({...formData, quantityOnHand: parseInt(e.target.value) || 0})} />
           </div>
           <div>
-            <label className={labelClasses}>Min Stock (Alert Threshold)</label>
+            <label className={labelClasses}>Min Stock</label>
             <input required type="number" className={inputClasses} value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})} />
           </div>
-          <div className="col-span-2">
+          <div className="col-span-1">
+            <label className={labelClasses}>Bin Location</label>
+            <input required className={inputClasses} value={formData.binLocation} onChange={e => setFormData({...formData, binLocation: e.target.value})} />
+          </div>
+          <div className="col-span-1">
             <label className={labelClasses}>Unit Price ($)</label>
             <input required type="number" step="0.01" className={inputClasses + " text-orange-500 text-2xl"} value={formData.unitPrice} onChange={e => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})} />
           </div>

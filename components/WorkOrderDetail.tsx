@@ -1,29 +1,49 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { WorkOrder, WorkOrderStatus, Part, ServiceNote, LaborEntry, InventoryItem } from '../types';
-import { STATUS_COLORS, STATUS_SEQUENCE, VEHICLE_ICONS, DEFAULT_SHOP_RATE } from '../constants';
+import { WorkOrder, WorkOrderStatus, Part, ServiceNote, LaborEntry, InventoryItem, PartsOrder, OrderStatus, Vendor, ModelSchematic } from '../types';
+import { STATUS_COLORS, STATUS_SEQUENCE, VEHICLE_ICONS, DEFAULT_SHOP_RATE, SHOP_NAME, COMMON_LABOR_TASKS } from '../constants';
 import { Button } from './Button';
 import { getDiagnosticSuggestions } from '../services/geminiService';
+import { DiagramViewerModal } from './DiagramViewerModal';
 
 interface WorkOrderDetailProps {
   order: WorkOrder;
   inventory: InventoryItem[];
+  vendors: Vendor[];
+  schematics: ModelSchematic[];
   onUpdate: (updatedOrder: WorkOrder) => void;
+  onSpecialOrder: (part: Omit<PartsOrder, 'id'>) => void;
+  onAddSchematic: (schematic: Omit<ModelSchematic, 'id'>) => void;
   onBack: () => void;
 }
 
-export const WorkOrderDetail: React.FC<WorkOrderDetailProps> = ({ order, inventory, onUpdate, onBack }) => {
+interface AiSuggestions {
+  potentialCauses: string[];
+  suggestedSteps: string[];
+  missingInformation: string[];
+}
+
+export const WorkOrderDetail: React.FC<WorkOrderDetailProps> = ({ order, inventory, vendors, schematics, onUpdate, onSpecialOrder, onAddSchematic, onBack }) => {
   const [activeTab, setActiveTab] = useState<'LOG' | 'LABOR' | 'PARTS' | 'PHOTOS' | 'AI'>('LOG');
   const [newNote, setNewNote] = useState('');
-  const [aiSuggestions, setAiSuggestions] = useState<{ potentialCauses: string[], suggestedSteps: string[] } | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestions | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [partSearch, setPartSearch] = useState('');
+  const [isSpecialOrderModalOpen, setIsSpecialOrderModalOpen] = useState(false);
+  const [isDiagramOpen, setIsDiagramOpen] = useState(false);
+  const [isAttachDiagramOpen, setIsAttachDiagramOpen] = useState(false);
 
   // Timer State
   const [isPunchedIn, setIsPunchedIn] = useState(false);
   const [punchInTime, setPunchInTime] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<number | null>(null);
+
+  const matchedSchematic = schematics.find(s => 
+    s.year === order.year && 
+    s.make.toLowerCase() === order.make.toLowerCase() && 
+    s.model.toLowerCase() === order.model.toLowerCase()
+  );
 
   useEffect(() => {
     if (isPunchedIn) {
@@ -40,581 +60,475 @@ export const WorkOrderDetail: React.FC<WorkOrderDetailProps> = ({ order, invento
   }, [isPunchedIn]);
 
   const updateStatus = (newStatus: WorkOrderStatus) => {
+    if (newStatus === WorkOrderStatus.PICKED_UP) {
+      if (!window.confirm("ARE YOU SURE? THIS ARCHIVES THE JOB.")) return;
+    }
     onUpdate({ ...order, status: newStatus });
   };
 
-  const addNote = () => {
-    if (!newNote.trim()) return;
+  const handleAddNote = (e?: React.FormEvent, manualContent?: string) => {
+    if (e) e.preventDefault();
+    const content = manualContent || newNote;
+    if (!content.trim()) return;
+    
     const note: ServiceNote = {
       id: Math.random().toString(36).substr(2, 9),
       timestamp: new Date().toLocaleString(),
-      author: 'Shop Mechanic',
-      content: newNote
+      author: 'Current Tech',
+      content: content
     };
     onUpdate({ ...order, notes: [note, ...order.notes] });
-    setNewNote('');
+    if (!manualContent) setNewNote('');
   };
 
-  const addPartFromInventory = (item: InventoryItem) => {
-    const part: Part = {
+  const copyToNotes = (text: string, prefix: string = "FOLLOW-UP CHECK") => {
+    handleAddNote(undefined, `[AI ${prefix}]: ${text}`);
+    alert(`${prefix} added to Service Log`);
+  };
+
+  const handleAddLabor = (description: string, hours: number) => {
+    const entry: LaborEntry = {
       id: Math.random().toString(36).substr(2, 9),
-      partNumber: item.partNumber,
-      description: item.description,
-      price: item.unitPrice,
-      quantity: 1
+      technician: 'Current Tech',
+      description,
+      hours,
+      rate: DEFAULT_SHOP_RATE,
+      timestamp: new Date().toISOString()
     };
-    onUpdate({ ...order, parts: [...order.parts, part] });
+    onUpdate({ ...order, laborEntries: [...order.laborEntries, entry] });
+  };
+
+  const handlePunchOut = () => {
+    if (!punchInTime) return;
+    const hours = elapsedSeconds / 3600;
+    handleAddLabor('Timed Labor Session', Number(hours.toFixed(2)));
+    setIsPunchedIn(false);
+    setPunchInTime(null);
+  };
+
+  const handleAddPart = (item: InventoryItem) => {
+    const existing = order.parts.find(p => p.partNumber === item.partNumber);
+    if (existing) {
+      onUpdate({
+        ...order,
+        parts: order.parts.map(p => p.partNumber === item.partNumber ? { ...p, quantity: p.quantity + 1 } : p)
+      });
+    } else {
+      const part: Part = {
+        id: Math.random().toString(36).substr(2, 9),
+        partNumber: item.partNumber,
+        description: item.description,
+        price: item.unitPrice,
+        quantity: 1
+      };
+      onUpdate({ ...order, parts: [...order.parts, part] });
+    }
     setPartSearch('');
   };
 
-  const addPartManual = () => {
-    const part: Part = {
-      id: Math.random().toString(36).substr(2, 9),
-      partNumber: 'NEW-PART',
-      description: 'Generic Part',
-      price: 0,
-      quantity: 1
-    };
-    onUpdate({ ...order, parts: [...order.parts, part] });
-  };
-
-  const handlePunchToggle = () => {
-    if (!isPunchedIn) {
-      setPunchInTime(Date.now());
-      setIsPunchedIn(true);
-    } else {
-      const stopTime = Date.now();
-      const diffMs = stopTime - (punchInTime || stopTime);
-      const hours = parseFloat((diffMs / 3600000).toFixed(2));
-      
-      const newEntry: LaborEntry = {
-        id: Math.random().toString(36).substr(2, 9),
-        technician: 'Shop Mechanic',
-        description: 'Timed Labor Session',
-        hours: hours > 0.01 ? hours : 0.01,
-        rate: DEFAULT_SHOP_RATE,
-        timestamp: new Date().toLocaleString()
-      };
-      
-      onUpdate({ ...order, laborEntries: [...order.laborEntries, newEntry] });
-      setIsPunchedIn(false);
-      setPunchInTime(null);
-    }
-  };
-
-  const addManualLabor = () => {
-    const newEntry: LaborEntry = {
-      id: Math.random().toString(36).substr(2, 9),
-      technician: 'Shop Mechanic',
-      description: 'Manual Entry',
-      hours: 1.0,
-      rate: DEFAULT_SHOP_RATE,
-      timestamp: new Date().toLocaleString()
-    };
-    onUpdate({ ...order, laborEntries: [...order.laborEntries, newEntry] });
-  };
-
-  const updateLaborEntry = (id: string, field: keyof LaborEntry, value: any) => {
-    const updatedEntries = order.laborEntries.map(e => 
-      e.id === id ? { ...e, [field]: value } : e
-    );
-    onUpdate({ ...order, laborEntries: updatedEntries });
-  };
-
-  const handleAiConsult = async () => {
+  const handleRequestAiDiagnostics = async () => {
     setLoadingAi(true);
-    setActiveTab('AI');
-    const result = await getDiagnosticSuggestions(order.customerConcern, `${order.year} ${order.make} ${order.model}`);
+    const unitDetails = `${order.year} ${order.make} ${order.model}`;
+    const result = await getDiagnosticSuggestions(order.customerConcern, unitDetails, order.notes);
     setAiSuggestions(result);
     setLoadingAi(false);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const calculateTotals = () => {
+    const partsTotal = order.parts.reduce((s, p) => s + (p.price * p.quantity), 0);
+    const laborTotal = order.laborEntries.reduce((s, l) => s + (l.hours * l.rate), 0);
+    return { partsTotal, laborTotal, total: partsTotal + laborTotal };
   };
 
-  const partsTotal = order.parts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-  const laborTotal = order.laborEntries.reduce((sum, l) => sum + (l.hours * l.rate), 0);
-  const grandTotal = partsTotal + laborTotal;
-
-  const formatTime = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
-  };
-
-  const filteredInventory = inventory.filter(i => 
-    i.partNumber.toLowerCase().includes(partSearch.toLowerCase()) || 
-    i.description.toLowerCase().includes(partSearch.toLowerCase())
-  ).slice(0, 5);
+  const totals = calculateTotals();
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 pb-32">
-      {/* Printer Template (Hidden on Screen) */}
-      <div className="print-template p-8 font-serif">
-        <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-6">
-          <div>
-            <h1 className="text-5xl font-rugged uppercase tracking-tighter">Shop Copy</h1>
-            <p className="text-xl font-bold uppercase mt-2">PowerLog Pro Service System</p>
-          </div>
-          <div className="text-right">
-            <div className="text-4xl font-rugged text-black">#{order.orderNumber}</div>
-            <div className="text-sm font-bold mt-1">Date: {new Date().toLocaleDateString()}</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div className="print-border p-4">
-            <h2 className="text-xs font-black uppercase tracking-widest border-b border-black mb-2">Customer Info</h2>
-            <div className="text-2xl font-bold uppercase">{order.customerName}</div>
-            <div className="text-lg">{order.phone}</div>
-          </div>
-          <div className="print-border p-4">
-            <h2 className="text-xs font-black uppercase tracking-widest border-b border-black mb-2">Unit Details</h2>
-            <div className="text-2xl font-bold uppercase">{order.year} {order.make} {order.model}</div>
-            <div className="font-mono text-sm mt-1 uppercase">VIN: {order.vin}</div>
-          </div>
-        </div>
-
-        <div className="mb-8">
-          <h2 className="text-xs font-black uppercase tracking-widest border-b border-black mb-2">Customer Concern</h2>
-          <div className="text-xl p-4 print-border min-h-[100px] italic">
-            "{order.customerConcern}"
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-8">
-          <div>
-            <h2 className="text-xs font-black uppercase tracking-widest border-b border-black mb-2">Parts Used / Needed</h2>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-left text-xs uppercase font-bold">
-                  <th className="print-border p-2 w-1/4">Part #</th>
-                  <th className="print-border p-2 w-2/4">Description</th>
-                  <th className="print-border p-2 w-1/4">Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <tr key={i} className="h-10">
-                    <td className="print-border p-2"></td>
-                    <td className="print-border p-2"></td>
-                    <td className="print-border p-2"></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div>
-            <h2 className="text-xs font-black uppercase tracking-widest border-b border-black mb-2">Labor Log</h2>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-left text-xs uppercase font-bold">
-                  <th className="print-border p-2 w-1/5">Date</th>
-                  <th className="print-border p-2 w-3/5">Work Performed</th>
-                  <th className="print-border p-2 w-1/5">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="h-10">
-                    <td className="print-border p-2"></td>
-                    <td className="print-border p-2"></td>
-                    <td className="print-border p-2"></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-4">
-            <h2 className="text-xs font-black uppercase tracking-widest border-b border-black mb-2">Diagnostic Findings / Recommendations</h2>
-            <div className="print-border p-4 min-h-[300px] print-lined">
-              {/* Technician handwriting area */}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Screen View */}
-      <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="flex items-center gap-4">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      {/* Detail Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b-2 border-zinc-800 pb-6">
+        <div className="flex items-center gap-6">
           <Button variant="ghost" onClick={onBack} size="sm">
-            <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            Dashboard
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
           </Button>
-          <div className="h-10 w-[2px] bg-zinc-800 hidden md:block"></div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 font-mono text-sm">#{order.orderNumber}</span>
-              <h1 className="text-2xl font-rugged uppercase">{order.year} {order.make} {order.model}</h1>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">{order.orderNumber}</span>
+              <span className="text-[10px] font-mono text-zinc-500">VIN: {order.vin}</span>
             </div>
-            <p className="text-zinc-400 text-sm">{order.customerName} • {order.phone}</p>
+            <h1 className="text-4xl font-rugged text-zinc-100 uppercase leading-none">{order.year} {order.make} {order.model}</h1>
+            <p className="text-zinc-500 font-bold uppercase text-xs mt-1 tracking-tighter">Owner: {order.customerName} • {order.phone}</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" onClick={handlePrint} className="mr-2">
-             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-             Print Shop Copy
-          </Button>
-          {STATUS_SEQUENCE.map((s) => (
-            <button
-              key={s}
-              onClick={() => updateStatus(s)}
-              className={`px-3 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-tighter transition-all ${
-                order.status === s ? STATUS_COLORS[s] : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex flex-col items-end gap-2">
+           <div className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Flow Status</div>
+           <select 
+            value={order.status}
+            onChange={(e) => updateStatus(e.target.value as WorkOrderStatus)}
+            className={`font-rugged text-xl px-4 py-2 uppercase tracking-wide rounded-sm outline-none cursor-pointer border-2 transition-all ${STATUS_COLORS[order.status]}`}
+           >
+             {STATUS_SEQUENCE.map(s => <option key={s} value={s} className="bg-zinc-900 text-white font-sans">{s}</option>)}
+           </select>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Sidebar Info */}
-        <div className="space-y-6">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm">
-            <h3 className="font-rugged text-xl uppercase text-orange-500 mb-4 flex items-center gap-2">
-              {VEHICLE_ICONS[order.vehicleType]}
-              Intake Details
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">VIN / Serial</label>
-                <p className="font-mono text-zinc-100">{order.vin.toUpperCase()}</p>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">Customer Concern</label>
-                <p className="text-zinc-300 italic">"{order.customerConcern}"</p>
-              </div>
-              <Button variant="secondary" fullWidth className="mt-4" onClick={handleAiConsult} disabled={loadingAi}>
-                {loadingAi ? 'Analyzing...' : 'AI Mechanic Consultation'}
-              </Button>
-            </div>
-          </div>
-
-          {/* Punch Clock Widget */}
-          <div className={`bg-zinc-900 border-2 rounded-sm p-6 transition-colors ${isPunchedIn ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : 'border-zinc-800'}`}>
-            <h3 className="font-rugged text-xl uppercase mb-2">Punch Clock</h3>
-            <div className="text-4xl font-mono text-center mb-6 py-4 bg-zinc-950 rounded-sm">
-              {formatTime(elapsedSeconds)}
-            </div>
-            <Button 
-              variant={isPunchedIn ? 'danger' : 'primary'} 
-              fullWidth 
-              size="xl" 
-              onClick={handlePunchToggle}
-            >
-              {isPunchedIn ? 'Punch Out & Log' : 'Punch In'}
-            </Button>
-            <p className="text-[10px] text-zinc-500 text-center mt-4 uppercase tracking-widest">
-              Live timer logs directly to labor entries
-            </p>
-          </div>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex border-b-2 border-zinc-800 overflow-x-auto whitespace-nowrap">
-            {['LOG', 'LABOR', 'PARTS', 'PHOTOS', 'AI'].map((tab) => (
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        {/* Main Tabs Area */}
+        <div className="xl:col-span-3 space-y-6">
+          <div className="flex border-b border-zinc-800 overflow-x-auto no-scrollbar">
+            {(['LOG', 'LABOR', 'PARTS', 'PHOTOS', 'AI'] as const).map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`px-8 py-4 font-rugged text-lg uppercase tracking-widest transition-colors ${
-                  activeTab === tab ? 'text-orange-500 border-b-2 border-orange-500 mb-[-2px]' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
+                onClick={() => setActiveTab(tab)}
+                className={`px-8 py-4 font-rugged text-xl uppercase tracking-widest transition-all relative ${activeTab === tab ? 'text-orange-500' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
                 {tab}
+                {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600"></div>}
               </button>
             ))}
           </div>
 
           <div className="min-h-[400px]">
             {activeTab === 'LOG' && (
-              <div className="space-y-6">
-                <div className="flex gap-4">
-                  <textarea
-                    className="flex-1 bg-zinc-950 border border-zinc-800 p-4 rounded-sm outline-none focus:border-orange-500"
-                    placeholder="Type mechanic notes here..."
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
+              <div className="space-y-6 animate-in slide-in-from-left-4">
+                <form onSubmit={handleAddNote} className="space-y-3">
+                  <textarea 
+                    className="w-full bg-zinc-950 border-2 border-zinc-800 p-4 rounded-sm outline-none focus:border-orange-500 text-zinc-100"
+                    placeholder="Add service update or internal note..."
                     rows={3}
+                    value={newNote}
+                    onChange={e => setNewNote(e.target.value)}
                   />
-                  <Button size="lg" onClick={addNote}>Post Note</Button>
-                </div>
+                  <div className="flex justify-end">
+                    <Button type="submit">Post Update</Button>
+                  </div>
+                </form>
+
                 <div className="space-y-4">
-                  {order.notes.map((note) => (
-                    <div key={note.id} className="bg-zinc-950 border border-zinc-800 p-4 rounded-sm">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-bold text-orange-500">{note.author}</span>
-                        <span className="text-xs text-zinc-600 font-mono">{note.timestamp}</span>
+                  {order.notes.map(note => (
+                    <div key={note.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-sm relative group">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-black uppercase text-orange-500 tracking-widest">{note.author}</span>
+                        <span className="text-[10px] font-mono text-zinc-600">{note.timestamp}</span>
                       </div>
-                      <p className="text-zinc-300">{note.content}</p>
+                      <p className="text-zinc-300 whitespace-pre-wrap">{note.content}</p>
                     </div>
                   ))}
-                  {order.notes.length === 0 && <p className="text-zinc-600 italic">No notes recorded yet.</p>}
+                  {order.notes.length === 0 && <p className="text-center py-10 text-zinc-700 uppercase font-black tracking-widest italic">No service updates logged yet.</p>}
                 </div>
               </div>
             )}
 
             {activeTab === 'LABOR' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-rugged text-xl uppercase">Labor Line Items</h3>
-                  <Button variant="secondary" size="md" onClick={addManualLabor}>+ Add Labor</Button>
+              <div className="space-y-8 animate-in slide-in-from-left-4">
+                {/* Punch Clock */}
+                <div className="bg-zinc-900 border-2 border-zinc-800 p-8 rounded-sm text-center shadow-2xl relative overflow-hidden">
+                   <div className="relative z-10">
+                      <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Technician Time Tracking</div>
+                      <div className={`text-7xl font-rugged mb-6 transition-colors ${isPunchedIn ? 'text-emerald-500 animate-pulse' : 'text-zinc-100'}`}>
+                        {new Date(elapsedSeconds * 1000).toISOString().substr(11, 8)}
+                      </div>
+                      <div className="flex justify-center gap-4">
+                        {!isPunchedIn ? (
+                          <Button size="xl" onClick={() => { setIsPunchedIn(true); setPunchInTime(Date.now()); }} className="w-48 bg-emerald-600 border-emerald-600">PUNCH IN</Button>
+                        ) : (
+                          <Button size="xl" variant="danger" onClick={handlePunchOut} className="w-48">PUNCH OUT</Button>
+                        )}
+                      </div>
+                   </div>
+                   {isPunchedIn && <div className="absolute inset-0 bg-emerald-500/5 animate-pulse"></div>}
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-zinc-950 text-[10px] font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-800">
-                      <tr>
-                        <th className="px-4 py-4">Technician</th>
-                        <th className="px-4 py-4">Work Performed</th>
-                        <th className="px-4 py-4 w-24">Hours</th>
-                        <th className="px-4 py-4 w-24">Rate</th>
-                        <th className="px-4 py-4 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {order.laborEntries.map((l) => (
-                        <tr key={l.id} className="bg-zinc-900/50">
-                          <td className="px-4 py-4">
-                            <input 
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full text-zinc-200"
-                              value={l.technician}
-                              onChange={(e) => updateLaborEntry(l.id, 'technician', e.target.value)}
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input 
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full text-zinc-300"
-                              value={l.description}
-                              placeholder="e.g. Engine Diagnostic"
-                              onChange={(e) => updateLaborEntry(l.id, 'description', e.target.value)}
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input 
-                              type="number"
-                              step="0.1"
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full font-mono text-orange-500"
-                              value={l.hours}
-                              onChange={(e) => updateLaborEntry(l.id, 'hours', parseFloat(e.target.value) || 0)}
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            <input 
-                              type="number"
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full font-mono text-zinc-400"
-                              value={l.rate}
-                              onChange={(e) => updateLaborEntry(l.id, 'rate', parseFloat(e.target.value) || 0)}
-                            />
-                          </td>
-                          <td className="px-4 py-4 text-right font-mono font-bold text-white">
-                            ${(l.hours * l.rate).toFixed(2)}
-                          </td>
-                        </tr>
+
+                <div className="space-y-4">
+                   <h3 className="text-xl font-rugged uppercase text-zinc-100 border-b border-zinc-800 pb-2">Applied Labor</h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {COMMON_LABOR_TASKS.map(task => (
+                        <button 
+                          key={task}
+                          onClick={() => handleAddLabor(task, 0.5)}
+                          className="p-4 bg-zinc-950 border border-zinc-900 hover:border-orange-500 text-left transition-all group"
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="text-zinc-300 font-bold uppercase text-xs">{task}</span>
+                            <span className="text-orange-500 font-black text-[10px] opacity-0 group-hover:opacity-100">+ Add 0.5h</span>
+                          </div>
+                        </button>
                       ))}
-                      {order.laborEntries.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-12 text-center text-zinc-600 italic">No labor entries recorded. Punch in or add manually.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                   </div>
+                   
+                   <div className="bg-zinc-900 border border-zinc-800 rounded-sm overflow-hidden mt-6">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-zinc-950 text-zinc-600 font-black uppercase text-[10px]">
+                          <tr>
+                            <th className="px-4 py-3">Task</th>
+                            <th className="px-4 py-3">Tech</th>
+                            <th className="px-4 py-3">Hours</th>
+                            <th className="px-4 py-3 text-right">Ext.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800">
+                          {order.laborEntries.map(entry => (
+                            <tr key={entry.id}>
+                              <td className="px-4 py-3 text-zinc-300 uppercase font-bold text-xs">{entry.description}</td>
+                              <td className="px-4 py-3 text-zinc-500">{entry.technician}</td>
+                              <td className="px-4 py-3 font-mono">{entry.hours}</td>
+                              <td className="px-4 py-3 text-right font-mono">${(entry.hours * entry.rate).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                   </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'PARTS' && (
-              <div className="space-y-6">
-                <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-sm">
-                  <h3 className="font-rugged text-xl uppercase mb-4 text-zinc-100">Add Parts from Inventory</h3>
-                  <div className="relative">
-                    <input 
-                      type="text"
-                      className="w-full bg-zinc-950 border border-zinc-800 p-4 text-zinc-100 outline-none focus:border-orange-500 uppercase font-bold"
-                      placeholder="Start typing Part Number or Description..."
-                      value={partSearch}
-                      onChange={(e) => setPartSearch(e.target.value)}
-                    />
-                    {partSearch && (
-                      <div className="absolute top-full left-0 right-0 bg-zinc-900 border-2 border-orange-500 mt-1 shadow-2xl z-50 rounded-sm overflow-hidden">
-                        {filteredInventory.length > 0 ? (
-                          filteredInventory.map(item => (
-                            <div 
-                              key={item.id} 
-                              className="p-4 border-b border-zinc-800 hover:bg-zinc-800 cursor-pointer flex justify-between items-center group"
-                              onClick={() => addPartFromInventory(item)}
-                            >
-                              <div>
-                                <div className="font-mono text-orange-500 font-bold group-hover:text-white">{item.partNumber}</div>
-                                <div className="text-xs text-zinc-400">{item.description} • Bin: {item.binLocation}</div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-sm font-bold text-zinc-100">${item.unitPrice.toFixed(2)}</div>
-                                <div className={`text-[10px] font-bold ${item.quantityOnHand > 0 ? 'text-zinc-500' : 'text-red-500 uppercase'}`}>
-                                  {item.quantityOnHand > 0 ? `In Stock: ${item.quantityOnHand}` : 'OUT OF STOCK'}
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="p-4 text-zinc-500 text-sm italic flex justify-between items-center">
-                            No parts found. 
-                            <Button variant="ghost" size="sm" onClick={addPartManual}>Add Manual Row</Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <div className="space-y-6 animate-in slide-in-from-left-4">
+                 <div className="relative">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-2 block">Stock Lookup</label>
+                   <input 
+                    className="w-full bg-zinc-950 border-2 border-zinc-800 p-4 rounded-sm outline-none focus:border-orange-500 uppercase font-bold"
+                    placeholder="Search inventory by Part # or Description..."
+                    value={partSearch}
+                    onChange={e => setPartSearch(e.target.value)}
+                   />
+                   {partSearch && (
+                     <div className="absolute top-full left-0 right-0 z-50 bg-zinc-900 border-2 border-orange-500 mt-1 shadow-2xl">
+                       {inventory.filter(i => i.partNumber.toLowerCase().includes(partSearch.toLowerCase()) || i.description.toLowerCase().includes(partSearch.toLowerCase())).slice(0, 5).map(item => (
+                         <div key={item.id} className="p-4 border-b border-zinc-800 hover:bg-zinc-800 cursor-pointer flex justify-between items-center" onClick={() => handleAddPart(item)}>
+                           <div>
+                             <div className="font-mono text-orange-500 font-bold">{item.partNumber}</div>
+                             <div className="text-xs text-zinc-400">{item.description}</div>
+                           </div>
+                           <div className="text-right">
+                              <div className="text-[10px] font-black text-emerald-500 uppercase">{item.quantityOnHand > 0 ? `Stock: ${item.quantityOnHand}` : 'OUT OF STOCK'}</div>
+                              <div className="text-[10px] font-bold text-zinc-500 uppercase">Loc: {item.binLocation}</div>
+                           </div>
+                         </div>
+                       ))}
+                       <div 
+                        className="p-4 bg-zinc-950 text-center cursor-pointer hover:bg-zinc-800 border-t border-zinc-800"
+                        onClick={() => { setIsSpecialOrderModalOpen(true); }}
+                       >
+                         <span className="text-[10px] font-black uppercase text-orange-600">+ Special Order Item</span>
+                       </div>
+                     </div>
+                   )}
+                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-zinc-950 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                      <tr>
-                        <th className="px-4 py-2">Part #</th>
-                        <th className="px-4 py-2">Description</th>
-                        <th className="px-4 py-2">Qty</th>
-                        <th className="px-4 py-2">Price</th>
-                        <th className="px-4 py-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {order.parts.map((p) => (
-                        <tr key={p.id}>
-                          <td className="px-4 py-4 font-mono text-zinc-300">
-                            <input 
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full font-mono uppercase"
-                              value={p.partNumber}
-                              onChange={(e) => {
-                                const newParts = order.parts.map(pt => pt.id === p.id ? { ...pt, partNumber: e.target.value } : pt);
-                                onUpdate({ ...order, parts: newParts });
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-4 text-zinc-300">
-                            <input 
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full"
-                              value={p.description}
-                              onChange={(e) => {
-                                const newParts = order.parts.map(pt => pt.id === p.id ? { ...pt, description: e.target.value } : pt);
-                                onUpdate({ ...order, parts: newParts });
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-4 text-zinc-300 w-20">
-                            <input 
-                              type="number"
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full font-mono"
-                              value={p.quantity}
-                              onChange={(e) => {
-                                const newParts = order.parts.map(pt => pt.id === p.id ? { ...pt, quantity: parseInt(e.target.value) || 0 } : pt);
-                                onUpdate({ ...order, parts: newParts });
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-4 text-zinc-300 w-24">
-                            <input 
-                              type="number"
-                              className="bg-transparent border-none focus:ring-1 focus:ring-orange-500 rounded-sm w-full font-mono"
-                              value={p.price}
-                              onChange={(e) => {
-                                const newParts = order.parts.map(pt => pt.id === p.id ? { ...pt, price: parseFloat(e.target.value) || 0 } : pt);
-                                onUpdate({ ...order, parts: newParts });
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-4 text-right text-orange-500 font-bold font-mono">${(p.price * p.quantity).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'PHOTOS' && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="aspect-video bg-zinc-950 border-2 border-dashed border-zinc-800 rounded-sm flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 transition-colors">
-                  <svg className="w-8 h-8 text-zinc-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  <span className="text-xs font-bold uppercase text-zinc-600">Upload Image</span>
-                </div>
-                {order.images.map((img, i) => (
-                  <img key={i} src={img} className="aspect-video object-cover border border-zinc-800 rounded-sm" />
-                ))}
-                {order.images.length === 0 && (
-                  <div className="col-span-full py-12 text-center text-zinc-600 italic">No job photos attached.</div>
-                )}
+                 <div className="bg-zinc-900 border border-zinc-800 rounded-sm overflow-hidden">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-zinc-950 text-zinc-600 font-black uppercase text-[10px]">
+                          <tr>
+                            <th className="px-4 py-3">Part #</th>
+                            <th className="px-4 py-3">Description</th>
+                            <th className="px-4 py-3">Qty</th>
+                            <th className="px-4 py-3 text-right">Ext.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800">
+                          {order.parts.map(part => (
+                            <tr key={part.id}>
+                              <td className="px-4 py-3 font-mono text-orange-500 font-bold">{part.partNumber}</td>
+                              <td className="px-4 py-3 text-zinc-300 text-xs">{part.description}</td>
+                              <td className="px-4 py-3 font-mono">{part.quantity}</td>
+                              <td className="px-4 py-3 text-right font-mono">${(part.price * part.quantity).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                          {order.parts.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-zinc-700 uppercase font-black italic">No parts applied.</td></tr>}
+                        </tbody>
+                    </table>
+                 </div>
               </div>
             )}
 
             {activeTab === 'AI' && (
-              <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-sm space-y-8">
-                {loadingAi ? (
-                  <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-                    <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-orange-500 font-rugged text-xl">Consulting Service Intelligence...</p>
+              <div className="space-y-6 animate-in slide-in-from-left-4 pb-12">
+                <div className="bg-zinc-900 border-2 border-orange-600/30 p-8 rounded-sm text-center relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h3 className="text-3xl font-rugged uppercase text-zinc-100 mb-2">AI Diagnostic Assist</h3>
+                    <p className="text-zinc-500 text-sm max-w-xl mx-auto mb-8 uppercase font-bold tracking-widest">Consulting expert system based on unit specs and technician log.</p>
+                    <Button 
+                      size="xl" 
+                      onClick={handleRequestAiDiagnostics} 
+                      disabled={loadingAi}
+                      className="min-w-64"
+                    >
+                      {loadingAi ? 'CONSULTING EXPERT SYSTEM...' : 'ANALYZE SYMPTOMS'}
+                    </Button>
                   </div>
-                ) : aiSuggestions ? (
-                  <>
-                    <div className="space-y-4">
-                      <h3 className="text-orange-500 font-rugged text-2xl uppercase">Potential Causes</h3>
-                      <ul className="space-y-2">
-                        {aiSuggestions.potentialCauses.map((c, i) => (
-                          <li key={i} className="flex gap-3 items-start text-zinc-300">
-                            <span className="text-orange-500 font-bold">[{i+1}]</span> {c}
-                          </li>
-                        ))}
-                      </ul>
+                  <div className="absolute -bottom-10 -right-10 opacity-5 pointer-events-none">
+                    <svg className="w-64 h-64" fill="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
+                  </div>
+                </div>
+
+                {aiSuggestions && (
+                  <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-zinc-900 border-l-4 border-orange-500 p-6 shadow-xl">
+                        <h4 className="text-orange-500 font-rugged text-xl uppercase mb-4">Potential Causes</h4>
+                        <ul className="space-y-3">
+                          {aiSuggestions.potentialCauses.map((cause, i) => (
+                            <li key={i} className="flex gap-3 text-zinc-300 text-sm">
+                              <span className="text-orange-600 font-bold">0{i+1}</span>
+                              {cause}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="bg-zinc-900 border-l-4 border-emerald-500 p-6 shadow-xl">
+                        <h4 className="text-emerald-500 font-rugged text-xl uppercase mb-4">Suggested Steps</h4>
+                        <ul className="space-y-3">
+                          {aiSuggestions.suggestedSteps.map((step, i) => (
+                            <li key={i} className="flex flex-col gap-2">
+                              <div className="flex gap-3 text-zinc-300 text-sm">
+                                <span className="text-emerald-600 font-bold">0{i+1}</span>
+                                {step}
+                              </div>
+                              <button 
+                                onClick={() => copyToNotes(step, "DIAGNOSTIC STEP")}
+                                className="text-[9px] font-black uppercase text-zinc-600 hover:text-emerald-500 self-end transition-colors"
+                              >
+                                [Add to Work Log]
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                    <div className="space-y-4">
-                      <h3 className="text-emerald-500 font-rugged text-2xl uppercase">Suggested Diagnostics</h3>
-                      <ul className="space-y-2">
-                        {aiSuggestions.suggestedSteps.map((s, i) => (
-                          <li key={i} className="flex gap-3 items-start text-zinc-300">
-                            <span className="text-emerald-500 font-bold">▶</span> {s}
-                          </li>
-                        ))}
-                      </ul>
+
+                    {/* NEW: Recommended Follow-up Section */}
+                    <div className="bg-zinc-900 border-2 border-blue-600/30 p-6 shadow-2xl rounded-sm">
+                       <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-2">
+                          <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          <h4 className="text-blue-500 font-rugged text-2xl uppercase tracking-wider">Recommended Follow-up Questions</h4>
+                       </div>
+                       <div className="space-y-4">
+                          {aiSuggestions.missingInformation.map((info, i) => (
+                            <div key={i} className="flex items-center justify-between group bg-zinc-950/50 p-3 border border-zinc-900 rounded-sm hover:border-blue-900/50 transition-all">
+                               <div className="flex items-start gap-4 pr-4">
+                                  <div className="w-5 h-5 rounded-full border-2 border-blue-600/30 flex items-center justify-center shrink-0 mt-0.5">
+                                     <div className="w-2 h-2 rounded-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                  </div>
+                                  <p className="text-zinc-300 text-sm italic">"{info}"</p>
+                               </div>
+                               <button 
+                                onClick={() => copyToNotes(info, "FOLLOW-UP CHECK")}
+                                className="bg-blue-600/10 border border-blue-600/30 text-blue-400 text-[10px] font-black uppercase px-3 py-1.5 rounded-sm hover:bg-blue-600 hover:text-white transition-all whitespace-nowrap"
+                               >
+                                 Copy to Notes
+                               </button>
+                            </div>
+                          ))}
+                       </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="text-center py-12">
-                     <p className="text-zinc-600">Run the AI Consultation to generate diagnostic leads.</p>
                   </div>
                 )}
               </div>
             )}
+
+            {activeTab === 'PHOTOS' && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in slide-in-from-left-4">
+                {order.images.map((img, i) => (
+                  <div key={i} className="aspect-square bg-zinc-900 border border-zinc-800 rounded-sm overflow-hidden group relative">
+                    <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={`Unit photo ${i+1}`} />
+                  </div>
+                ))}
+                <div className="aspect-square bg-zinc-950 border-2 border-dashed border-zinc-800 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 transition-colors group">
+                  <svg className="w-12 h-12 text-zinc-800 group-hover:text-orange-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <span className="text-[10px] font-black uppercase text-zinc-700 mt-2 group-hover:text-orange-500">Capture Shot</span>
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Sidebar Info */}
+        <div className="space-y-6">
+           {/* Schematic Card */}
+           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm shadow-xl space-y-4">
+              <h3 className="font-rugged text-xl uppercase text-orange-500 border-b border-zinc-800 pb-2">Unit Schematic</h3>
+              {matchedSchematic ? (
+                <div className="space-y-4">
+                  <div className="aspect-video bg-black rounded-sm overflow-hidden relative group cursor-pointer" onClick={() => setIsDiagramOpen(true)}>
+                    <img src={matchedSchematic.diagramUrl} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" alt="Microfiche" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                      <span className="bg-white text-black text-[10px] font-black px-2 py-1 rounded-sm uppercase">Launch Viewer</span>
+                    </div>
+                  </div>
+                  <Button variant="secondary" fullWidth size="sm" onClick={() => setIsDiagramOpen(true)}>Open Digital Parts Book</Button>
+                </div>
+              ) : (
+                <div className="bg-zinc-950 p-6 border border-zinc-800 border-dashed text-center">
+                   <p className="text-[10px] font-bold text-zinc-600 uppercase mb-4">No schematic indexed for this model</p>
+                   <Button variant="ghost" size="sm" onClick={() => setIsAttachDiagramOpen(true)}>Find or Upload Diagram</Button>
+                </div>
+              )}
+           </div>
+
+           {/* Inspection Card */}
+           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm shadow-xl">
+              <h3 className="font-rugged text-xl uppercase text-zinc-100 border-b border-zinc-800 pb-2 mb-4">Intake Inspection</h3>
+              <div className="space-y-2">
+                 {order.inspection && (Object.entries(order.inspection) as [string, boolean][]).map(([key, val]) => (
+                   <div key={key} className="flex justify-between items-center bg-zinc-950 p-2 rounded-sm">
+                      <span className="text-[10px] font-black uppercase text-zinc-500">{key}</span>
+                      <span className={`text-[10px] font-black uppercase ${val ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {val ? 'PASS' : 'FAIL'}
+                      </span>
+                   </div>
+                 ))}
+              </div>
+           </div>
+
+           {/* Totals Card */}
+           <div className="bg-zinc-900 border-t-4 border-orange-600 p-6 rounded-sm shadow-2xl">
+              <h3 className="font-rugged text-xl uppercase text-zinc-100 mb-4">Order Summary</h3>
+              <div className="space-y-2 mb-4">
+                 <div className="flex justify-between text-sm">
+                    <span className="text-zinc-500 uppercase font-bold text-[10px]">Parts Billed</span>
+                    <span className="font-mono text-zinc-300">${totals.partsTotal.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between text-sm">
+                    <span className="text-zinc-500 uppercase font-bold text-[10px]">Labor Subtotal</span>
+                    <span className="font-mono text-zinc-300">${totals.laborTotal.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between pt-2 border-t border-zinc-800">
+                    <span className="text-zinc-100 uppercase font-black text-xs">Total Estimate</span>
+                    <span className="font-rugged text-2xl text-orange-500">${totals.total.toFixed(2)}</span>
+                 </div>
+              </div>
+              <Button fullWidth variant="primary" size="lg">Generate Invoice</Button>
+           </div>
         </div>
       </div>
 
-      {/* Summary Box Sticky Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t-2 border-orange-600 py-4 px-6 md:px-12 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-40">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex gap-8">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Parts Subtotal</div>
-              <div className="text-xl font-mono text-zinc-100">${partsTotal.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Labor Subtotal</div>
-              <div className="text-xl font-mono text-zinc-100">${laborTotal.toFixed(2)}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <div className="text-xs font-bold uppercase tracking-tighter text-orange-500">Work Order Grand Total</div>
-              <div className="text-4xl font-rugged text-white">${grandTotal.toFixed(2)}</div>
-            </div>
-            <Button size="lg" className="hidden md:flex">Post Final Quote</Button>
+      {isDiagramOpen && matchedSchematic && (
+        <DiagramViewerModal 
+          url={matchedSchematic.diagramUrl}
+          title={`${matchedSchematic.year} ${matchedSchematic.make} ${matchedSchematic.model}`}
+          inventory={inventory}
+          onClose={() => setIsDiagramOpen(false)}
+        />
+      )}
+
+      {isSpecialOrderModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[200] backdrop-blur-md">
+          <div className="bg-zinc-900 border-2 border-orange-600 p-8 rounded-sm w-full max-w-xl shadow-2xl">
+             <h2 className="text-3xl font-rugged uppercase text-white mb-8">Special Order Entry</h2>
+             <div className="space-y-4">
+                <input className="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-sm uppercase font-bold text-zinc-100 outline-none focus:border-orange-500" placeholder="Part Number" />
+                <input className="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-sm uppercase font-bold text-zinc-100 outline-none focus:border-orange-500" placeholder="Part Description" />
+                <select className="w-full bg-zinc-950 border border-zinc-800 p-3 rounded-sm uppercase font-bold text-zinc-100 outline-none focus:border-orange-500">
+                  {vendors.map(v => <option key={v.id}>{v.name}</option>)}
+                </select>
+                <div className="flex gap-4 pt-6">
+                  <Button fullWidth size="lg" onClick={() => setIsSpecialOrderModalOpen(false)}>Add to WO</Button>
+                  <Button variant="secondary" fullWidth size="lg" onClick={() => setIsSpecialOrderModalOpen(false)}>Discard</Button>
+                </div>
+             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -29,6 +29,14 @@ export enum AppointmentType {
   PICKUP = 'Unit Pickup'
 }
 
+export interface Vendor {
+  id: string;
+  name: string;
+  accountNumber: string;
+  contactPerson: string;
+  freeShippingThreshold: number;
+}
+
 export interface Part {
   id: string;
   partNumber: string;
@@ -43,6 +51,8 @@ export interface PartsOrder {
   description: string;
   vendor: string;
   workOrderNumber?: string;
+  customerName?: string;
+  customerPhone?: string;
   quantity: number;
   dateOrdered?: string;
   status: OrderStatus;
@@ -67,6 +77,7 @@ export interface InventoryItem {
   description: string;
   category: string;
   brand: string;
+  preferredVendor: string;
   quantityOnHand: number;
   minStock: number;
   unitPrice: number;
@@ -95,6 +106,16 @@ export interface Vehicle {
   model: string;
   vin: string;
   type: VehicleType;
+  diagramUrl?: string;
+}
+
+export interface ModelSchematic {
+  id: string;
+  year: string;
+  make: string;
+  model: string;
+  diagramUrl: string;
+  vehicleType: VehicleType;
 }
 
 export interface Customer {
@@ -106,6 +127,14 @@ export interface Customer {
   preferredContact: 'Call' | 'Text';
   fleet: Vehicle[];
   lastVisit: string;
+}
+
+export interface InspectionChecklist {
+  tires: boolean;
+  fluids: boolean;
+  battery: boolean;
+  brakes: boolean;
+  lights: boolean;
 }
 
 export interface WorkOrder {
@@ -125,7 +154,9 @@ export interface WorkOrder {
   parts: Part[];
   laborEntries: LaborEntry[];
   images: string[];
+  inspection?: InspectionChecklist;
+  partsReceived?: boolean;
   createdAt: string;
 }
 
-export type ViewState = 'COMMAND_CENTER' | 'DASHBOARD' | 'CREATE' | 'DETAIL' | 'INVENTORY' | 'CUSTOMERS' | 'ORDERS' | 'CALENDAR' | 'ARCHIVE';
+export type ViewState = 'COMMAND_CENTER' | 'DASHBOARD' | 'CREATE' | 'DETAIL' | 'INVENTORY' | 'CUSTOMERS' | 'ORDERS' | 'VENDORS' | 'CALENDAR' | 'ARCHIVE' | 'SCHEMATICS';

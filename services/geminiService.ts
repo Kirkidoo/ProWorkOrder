@@ -1,16 +1,34 @@
-import { GoogleGenAI, Type } from "@google/genai";
 
-// Fix: Use process.env.API_KEY directly for initialization and create the instance inside the function to ensure the most up-to-date configuration.
-export const getDiagnosticSuggestions = async (concern: string, unitDetails: string) => {
+import { GoogleGenAI, Type } from "@google/genai";
+import { ServiceNote } from "../types";
+
+export const getDiagnosticSuggestions = async (concern: string, unitDetails: string, notes: ServiceNote[]) => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Format existing notes for context
+    const notesContext = notes.length > 0 
+      ? notes.map(n => `- ${n.timestamp}: ${n.content}`).join('\n')
+      : "No service notes logged yet.";
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `As an expert Powersports mechanic, analyze this customer concern and unit details.
+      
       Unit: ${unitDetails}
       Concern: ${concern}
       
-      Provide 3 potential causes and 3 suggested diagnostic steps. Keep it brief and technical.`,
+      Existing Service History/Notes:
+      ${notesContext}
+      
+      CRITICAL: Do not suggest diagnostic steps that have already been performed according to the notes.
+      
+      Provide:
+      1. 3 potential causes.
+      2. 3 suggested diagnostic steps (new actions).
+      3. 3-4 specific pieces of missing information or follow-up questions for the customer to refine the diagnosis (e.g., specific conditions when the issue occurs, dashboard codes to check, or specific sounds).
+      
+      Keep all responses brief, technical, and professional.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -23,14 +41,18 @@ export const getDiagnosticSuggestions = async (concern: string, unitDetails: str
             suggestedSteps: {
               type: Type.ARRAY,
               items: { type: Type.STRING }
+            },
+            missingInformation: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Questions or checks to narrow down the root cause."
             }
           },
-          required: ["potentialCauses", "suggestedSteps"]
+          required: ["potentialCauses", "suggestedSteps", "missingInformation"]
         }
       }
     });
 
-    // response.text is a getter, use it directly.
     const text = response.text;
     if (!text) return null;
     return JSON.parse(text);
