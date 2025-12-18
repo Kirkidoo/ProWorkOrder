@@ -1,16 +1,13 @@
-
 import React, { useState, useMemo } from 'react';
 import { WorkOrder, WorkOrderStatus, VehicleType } from '../types';
 import { STATUS_COLORS, VEHICLE_ICONS, STATUS_SEQUENCE } from '../constants';
 import { Button } from './Button';
+import { useApp } from '../context/AppContext';
 
-interface DashboardProps {
-  workOrders: WorkOrder[];
-  onSelectOrder: (order: WorkOrder) => void;
-  onCreateNew: () => void;
-}
-
-export const Dashboard: React.FC<DashboardProps> = ({ workOrders, onSelectOrder, onCreateNew }) => {
+export const Dashboard: React.FC = () => {
+  const { workOrders, setView, setSelectedOrder } = useApp();
+  const onSelectOrder = (order: WorkOrder) => { setSelectedOrder(order); setView('DETAIL'); };
+  const onCreateNew = () => setView('CREATE');
   const [typeFilter, setTypeFilter] = useState<VehicleType | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | 'ALL'>('ALL');
 
@@ -52,8 +49,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ workOrders, onSelectOrder,
       <div className="flex flex-wrap items-center gap-4 bg-zinc-900/50 p-4 border border-zinc-800 rounded-sm">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Type:</span>
-          <select 
-            value={typeFilter} 
+          <select
+            value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as any)}
             className={selectClasses}
           >
@@ -66,8 +63,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ workOrders, onSelectOrder,
 
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Status:</span>
-          <select 
-            value={statusFilter} 
+          <select
+            value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
             className={selectClasses}
           >
@@ -79,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ workOrders, onSelectOrder,
         </div>
 
         {(typeFilter !== 'ALL' || statusFilter !== 'ALL') && (
-          <button 
+          <button
             onClick={() => { setTypeFilter('ALL'); setStatusFilter('ALL'); }}
             className="text-[10px] font-bold uppercase tracking-widest text-orange-500 hover:text-orange-400 transition-colors"
           >
@@ -96,11 +93,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ workOrders, onSelectOrder,
         <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
           <h2 className="font-rugged text-xl tracking-wide uppercase">Active Work Orders</h2>
           <div className="flex gap-2">
-             <span className="flex items-center text-xs text-zinc-500"><div className="w-2 h-2 rounded-full bg-blue-500 mr-1"></div> New</span>
-             <span className="flex items-center text-xs text-zinc-500"><div className="w-2 h-2 rounded-full bg-orange-500 mr-1"></div> Repair</span>
+            <span className="flex items-center text-xs text-zinc-500"><div className="w-2 h-2 rounded-full bg-blue-500 mr-1"></div> New</span>
+            <span className="flex items-center text-xs text-zinc-500"><div className="w-2 h-2 rounded-full bg-orange-500 mr-1"></div> Repair</span>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -119,8 +116,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ workOrders, onSelectOrder,
                 </tr>
               ) : (
                 filteredOrders.map((order) => (
-                  <tr 
-                    key={order.id} 
+                  <tr
+                    key={order.id}
                     className="hover:bg-zinc-800/50 transition-colors cursor-pointer group"
                     onClick={() => onSelectOrder(order)}
                   >

@@ -1,22 +1,19 @@
-
 import React, { useState, useMemo } from 'react';
 import { WorkOrder, WorkOrderStatus } from '../types';
 import { Button } from './Button';
+import { useApp } from '../context/AppContext';
 
-interface ArchivePageProps {
-  workOrders: WorkOrder[];
-  onBack: () => void;
-}
-
-export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) => {
+export const ArchivePage: React.FC = () => {
+  const { workOrders, setView } = useApp();
+  const onBack = () => setView('COMMAND_CENTER');
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
 
   const archivedOrders = useMemo(() => {
-    return workOrders.filter(wo => 
-      wo.status === WorkOrderStatus.PICKED_UP || 
+    return workOrders.filter(wo =>
+      wo.status === WorkOrderStatus.PICKED_UP ||
       wo.status === WorkOrderStatus.READY
     );
   }, [workOrders]);
@@ -32,7 +29,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
 
     let totalLaborHours = 0;
     let totalPartsRev = 0;
-    
+
     todayOrders.forEach(wo => {
       totalLaborHours += wo.laborEntries.reduce((s, l) => s + l.hours, 0);
       totalPartsRev += wo.parts.reduce((s, p) => s + (p.price * p.quantity), 0);
@@ -48,7 +45,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
   const filteredOrders = useMemo(() => {
     return archivedOrders.filter(wo => {
       const searchLower = search.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         wo.customerName.toLowerCase().includes(searchLower) ||
         wo.vin.toLowerCase().includes(searchLower) ||
         wo.orderNumber.toLowerCase().includes(searchLower) ||
@@ -111,21 +108,21 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Daily Summary Card */}
         <div className="lg:col-span-1 bg-zinc-900 border-2 border-emerald-600/50 p-6 rounded-sm shadow-xl">
-           <h3 className="text-emerald-500 font-rugged text-xl uppercase mb-4 border-b border-emerald-900/50 pb-2">Today's Summary</h3>
-           <div className="space-y-4">
-              <div>
-                 <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Units Completed</div>
-                 <div className="text-3xl font-rugged text-zinc-100">{dailySummary.completed}</div>
-              </div>
-              <div>
-                 <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Labor Hours Billed</div>
-                 <div className="text-3xl font-rugged text-zinc-100">{dailySummary.hours} HRS</div>
-              </div>
-              <div>
-                 <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Parts Revenue</div>
-                 <div className="text-3xl font-rugged text-orange-500">${dailySummary.revenue}</div>
-              </div>
-           </div>
+          <h3 className="text-emerald-500 font-rugged text-xl uppercase mb-4 border-b border-emerald-900/50 pb-2">Today's Summary</h3>
+          <div className="space-y-4">
+            <div>
+              <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Units Completed</div>
+              <div className="text-3xl font-rugged text-zinc-100">{dailySummary.completed}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Labor Hours Billed</div>
+              <div className="text-3xl font-rugged text-zinc-100">{dailySummary.hours} HRS</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Parts Revenue</div>
+              <div className="text-3xl font-rugged text-orange-500">${dailySummary.revenue}</div>
+            </div>
+          </div>
         </div>
 
         {/* Filter and List */}
@@ -133,7 +130,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
               <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">Advanced Lookup</label>
-              <input 
+              <input
                 className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 uppercase font-bold text-sm rounded-sm"
                 placeholder="Search Name, VIN, WO#, or Model..."
                 value={search}
@@ -142,7 +139,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">From</label>
-              <input 
+              <input
                 type="date"
                 className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 text-sm rounded-sm"
                 value={dateFrom}
@@ -151,7 +148,7 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">To</label>
-              <input 
+              <input
                 type="date"
                 className="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-100 outline-none focus:border-orange-500 text-sm rounded-sm"
                 value={dateTo}
@@ -178,8 +175,8 @@ export const ArchivePage: React.FC<ArchivePageProps> = ({ workOrders, onBack }) 
                   </tr>
                 ) : (
                   filteredOrders.map((wo) => (
-                    <tr 
-                      key={wo.id} 
+                    <tr
+                      key={wo.id}
                       className="hover:bg-zinc-800/30 transition-colors cursor-pointer group opacity-75 hover:opacity-100"
                       onClick={() => setSelectedOrder(wo)}
                     >

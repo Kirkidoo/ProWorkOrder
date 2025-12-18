@@ -1,17 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { PartsOrder, OrderStatus, Vendor, InventoryItem } from '../types';
 import { Button } from './Button';
-
-interface PartsOrderPageProps {
-  orders: PartsOrder[];
-  vendors: Vendor[];
-  inventory: InventoryItem[];
-  onUpdateOrder: (order: PartsOrder) => void;
-  onAddOrder: (order: Omit<PartsOrder, 'id'>) => void;
-  onBulkOrdered: (vendorName: string) => void;
-  onBack: () => void;
-}
+import { useApp } from '../context/AppContext';
 
 const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   [OrderStatus.TO_ORDER]: 'bg-zinc-700 text-zinc-300',
@@ -20,7 +10,15 @@ const ORDER_STATUS_COLORS: Record<OrderStatus, string> = {
   [OrderStatus.RECEIVED]: 'bg-emerald-600 text-white',
 };
 
-export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors, inventory, onUpdateOrder, onAddOrder, onBulkOrdered, onBack }) => {
+export const PartsOrderPage: React.FC = () => {
+  const {
+    partsOrders: orders, vendors, inventory,
+    handleUpdatePartsOrder: onUpdateOrder, handleAddPartsOrder: onAddOrder,
+    handleBulkOrdered, setView
+  } = useApp();
+
+  const onBack = () => setView('COMMAND_CENTER');
+  const onBulkOrdered = (vendorName: string) => handleBulkOrdered(vendorName);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [notificationTarget, setNotificationTarget] = useState<PartsOrder | null>(null);
@@ -28,17 +26,17 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
       const s = search.toLowerCase();
-      return o.partNumber.toLowerCase().includes(s) || 
-             (o.customerName || '').toLowerCase().includes(s) ||
-             (o.vendor || '').toLowerCase().includes(s) ||
-             (o.workOrderNumber || '').toLowerCase().includes(s);
+      return o.partNumber.toLowerCase().includes(s) ||
+        (o.customerName || '').toLowerCase().includes(s) ||
+        (o.vendor || '').toLowerCase().includes(s) ||
+        (o.workOrderNumber || '').toLowerCase().includes(s);
     });
   }, [orders, search]);
 
   const vendorGroups = useMemo(() => {
     const toOrder = orders.filter(o => o.status === OrderStatus.TO_ORDER);
     const groups: Record<string, { total: number; orders: PartsOrder[] }> = {};
-    
+
     toOrder.forEach(o => {
       if (!groups[o.vendor]) groups[o.vendor] = { total: 0, orders: [] };
       // Estimate cost from inventory if possible, otherwise just use a dummy for calculation or we might need cost in PartsOrder
@@ -48,7 +46,7 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
       groups[o.vendor].total += cost;
       groups[o.vendor].orders.push(o);
     });
-    
+
     return groups;
   }, [orders, inventory]);
 
@@ -111,7 +109,7 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
 
                   <div className="space-y-2">
                     <div className="h-4 bg-zinc-950 rounded-full border border-zinc-800 overflow-hidden flex">
-                      <div 
+                      <div
                         className={`h-full transition-all duration-1000 ${isEligible ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-orange-600'}`}
                         style={{ width: `${progress}%` }}
                       ></div>
@@ -124,9 +122,9 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
                     </div>
                   </div>
 
-                  <Button 
-                    fullWidth 
-                    size="sm" 
+                  <Button
+                    fullWidth
+                    size="sm"
                     variant={isEligible ? 'primary' : 'secondary'}
                     onClick={() => onBulkOrdered(vendorName)}
                   >
@@ -148,7 +146,7 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
 
       <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-sm shadow-xl">
         <div className="relative">
-          <input 
+          <input
             className="w-full bg-zinc-950 border border-zinc-800 p-4 text-zinc-100 outline-none focus:border-orange-500 uppercase font-bold text-sm rounded-sm"
             placeholder="Search by Part #, Vendor, or Customer Name..."
             value={search}
@@ -176,7 +174,7 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
                   <td colSpan={5} className="px-6 py-12 text-center text-zinc-600 italic">No parts in the filtered queue.</td>
                 </tr>
               ) : (
-                filteredOrders.sort((a,b) => (a.status === OrderStatus.RECEIVED ? 1 : -1)).map((order) => (
+                filteredOrders.sort((a, b) => (a.status === OrderStatus.RECEIVED ? 1 : -1)).map((order) => (
                   <tr key={order.id} className={`hover:bg-zinc-800/30 transition-colors ${order.status === OrderStatus.RECEIVED ? 'opacity-60' : ''}`}>
                     <td className="px-6 py-4">
                       <div className="font-mono text-orange-500 font-bold">{order.partNumber}</div>
@@ -206,10 +204,10 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
-                        <select 
+                        <select
                           className={`text-[10px] font-black uppercase tracking-tighter px-2 py-1 rounded-sm border-none outline-none cursor-pointer ${ORDER_STATUS_COLORS[order.status]}`}
                           value={order.status}
-                          onChange={(e) => onUpdateOrder({...order, status: e.target.value as OrderStatus})}
+                          onChange={(e) => onUpdateOrder({ ...order, status: e.target.value as OrderStatus })}
                         >
                           {Object.values(OrderStatus).map(s => (
                             <option key={s} value={s} className="bg-zinc-900 text-white font-sans">{s}</option>
@@ -219,21 +217,21 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
                     </td>
                     <td className="px-6 py-4 text-right">
                       {order.status !== OrderStatus.RECEIVED && (
-                        <Button 
-                          variant="primary" 
-                          size="sm" 
+                        <Button
+                          variant="primary"
+                          size="sm"
                           onClick={() => handleReceive(order)}
                         >
                           Mark Received
                         </Button>
                       )}
                       {order.status === OrderStatus.RECEIVED && (
-                        <button 
+                        <button
                           onClick={() => setNotificationTarget(order)}
                           className="text-[10px] font-bold text-zinc-500 hover:text-orange-500 uppercase flex items-center gap-1 ml-auto"
                         >
-                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                           Re-notify
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                          Re-notify
                         </button>
                       )}
                     </td>
@@ -250,28 +248,28 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
           <div className="bg-zinc-900 border-4 border-emerald-600 p-8 rounded-sm w-full max-md shadow-[0_0_50px_rgba(16,185,129,0.3)] animate-in zoom-in-95">
             <h2 className="text-3xl font-rugged uppercase text-white mb-2">Part Received!</h2>
             <p className="text-zinc-400 text-sm mb-6 uppercase font-bold tracking-widest">Notification Workflow Required</p>
-            
+
             <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-sm mb-8 space-y-4">
-               <div>
-                  <label className="text-[10px] font-black text-zinc-600 uppercase">Customer Contact</label>
-                  <div className="text-xl font-bold text-emerald-400 uppercase">{notificationTarget.customerName}</div>
-                  <div className="text-lg font-mono text-zinc-100">{notificationTarget.customerPhone}</div>
-               </div>
-               <div>
-                  <label className="text-[10px] font-black text-zinc-600 uppercase">Order Details</label>
-                  <div className="text-sm text-zinc-300 font-bold uppercase">{notificationTarget.partNumber}</div>
-                  <div className="text-xs text-zinc-500">{notificationTarget.description}</div>
-               </div>
+              <div>
+                <label className="text-[10px] font-black text-zinc-600 uppercase">Customer Contact</label>
+                <div className="text-xl font-bold text-emerald-400 uppercase">{notificationTarget.customerName}</div>
+                <div className="text-lg font-mono text-zinc-100">{notificationTarget.customerPhone}</div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-zinc-600 uppercase">Order Details</label>
+                <div className="text-sm text-zinc-300 font-bold uppercase">{notificationTarget.partNumber}</div>
+                <div className="text-xs text-zinc-500">{notificationTarget.description}</div>
+              </div>
             </div>
 
             <div className="space-y-3">
               <Button fullWidth size="lg" onClick={() => handleNotifyCustomer(notificationTarget)}>Send Pickup Text</Button>
-              <Button fullWidth variant="secondary" size="lg" onClick={() => { 
+              <Button fullWidth variant="secondary" size="lg" onClick={() => {
                 if (notificationTarget.customerPhone) {
                   window.location.href = `tel:${notificationTarget.customerPhone}`;
                 }
               }}>Call Customer</Button>
-              <button 
+              <button
                 className="w-full text-[10px] font-bold text-zinc-600 uppercase pt-4 hover:text-white transition-colors"
                 onClick={() => setNotificationTarget(null)}
               >
@@ -283,7 +281,7 @@ export const PartsOrderPage: React.FC<PartsOrderPageProps> = ({ orders, vendors,
       )}
 
       {isModalOpen && (
-        <OrderModal 
+        <OrderModal
           vendors={vendors}
           onSave={(data) => { onAddOrder(data); setIsModalOpen(false); }}
           onClose={() => setIsModalOpen(false)}
@@ -324,11 +322,11 @@ const OrderModal = ({ vendors, onSave, onClose }: { vendors: Vendor[], onSave: (
         <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="grid grid-cols-2 gap-6">
           <div className="col-span-1">
             <label className={labelClasses}>Part Number</label>
-            <input required className={inputClasses} value={formData.partNumber} onChange={e => setFormData({...formData, partNumber: e.target.value})} />
+            <input required className={inputClasses} value={formData.partNumber} onChange={e => setFormData({ ...formData, partNumber: e.target.value })} />
           </div>
           <div className="col-span-1">
             <label className={labelClasses}>Vendor</label>
-            <select className={inputClasses} value={formData.vendor} onChange={e => setFormData({...formData, vendor: e.target.value})}>
+            <select className={inputClasses} value={formData.vendor} onChange={e => setFormData({ ...formData, vendor: e.target.value })}>
               {vendors.map(v => (
                 <option key={v.id} value={v.name}>{v.name}</option>
               ))}
@@ -337,37 +335,37 @@ const OrderModal = ({ vendors, onSave, onClose }: { vendors: Vendor[], onSave: (
           </div>
           <div className="col-span-2">
             <label className={labelClasses}>Description</label>
-            <input required className={inputClasses} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+            <input required className={inputClasses} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
           </div>
           <div className="col-span-2 bg-zinc-950 p-4 border border-zinc-800 rounded-sm">
-             <label className="block text-[10px] font-black uppercase tracking-widest text-orange-500 mb-3">Customer Linkage</label>
-             <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 md:col-span-1">
-                  <label className={labelClasses}>Work Order # (Optional)</label>
-                  <input className={inputClasses} placeholder="WO-1234" value={formData.workOrderNumber} onChange={e => setFormData({...formData, workOrderNumber: e.target.value})} />
-                </div>
-                <div className="col-span-2 md:col-span-1">
-                  <label className={labelClasses}>Quantity</label>
-                  <input required type="number" min="1" className={inputClasses} value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 1})} />
-                </div>
-                <div className="col-span-1">
-                   <label className={labelClasses}>Customer Name</label>
-                   <input required className={inputClasses} value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} />
-                </div>
-                <div className="col-span-1">
-                   <label className={labelClasses}>Customer Phone</label>
-                   <input required className={inputClasses} value={formData.customerPhone} onChange={e => setFormData({...formData, customerPhone: e.target.value})} />
-                </div>
-             </div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-orange-500 mb-3">Customer Linkage</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2 md:col-span-1">
+                <label className={labelClasses}>Work Order # (Optional)</label>
+                <input className={inputClasses} placeholder="WO-1234" value={formData.workOrderNumber} onChange={e => setFormData({ ...formData, workOrderNumber: e.target.value })} />
+              </div>
+              <div className="col-span-2 md:col-span-1">
+                <label className={labelClasses}>Quantity</label>
+                <input required type="number" min="1" className={inputClasses} value={formData.quantity} onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })} />
+              </div>
+              <div className="col-span-1">
+                <label className={labelClasses}>Customer Name</label>
+                <input required className={inputClasses} value={formData.customerName} onChange={e => setFormData({ ...formData, customerName: e.target.value })} />
+              </div>
+              <div className="col-span-1">
+                <label className={labelClasses}>Customer Phone</label>
+                <input required className={inputClasses} value={formData.customerPhone} onChange={e => setFormData({ ...formData, customerPhone: e.target.value })} />
+              </div>
+            </div>
           </div>
-          
+
           <div className="col-span-2 flex items-center gap-4 bg-zinc-950 p-4 rounded-sm border border-zinc-800">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="priority"
               className="w-6 h-6 accent-orange-500"
               checked={formData.isHighPriority}
-              onChange={e => setFormData({...formData, isHighPriority: e.target.checked})}
+              onChange={e => setFormData({ ...formData, isHighPriority: e.target.checked })}
             />
             <label htmlFor="priority" className="font-bold uppercase tracking-wider text-sm cursor-pointer select-none">
               High Priority / Next Day Air

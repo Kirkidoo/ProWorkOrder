@@ -1,32 +1,19 @@
-
 import React, { useState, useMemo } from 'react';
 import { WorkOrder, Appointment, WorkOrderStatus, VehicleType, AppointmentType, Customer } from '../types';
 import { STATUS_COLORS, VEHICLE_ICONS, STATUS_SEQUENCE, APPOINTMENT_COLORS, BUSINESS_HOURS } from '../constants';
 import { Button } from './Button';
+import { useApp } from '../context/AppContext';
 
-interface CommandCenterProps {
-  workOrders: WorkOrder[];
-  appointments: Appointment[];
-  customers: Customer[];
-  onSelectOrder: (order: WorkOrder) => void;
-  onCreateNewWO: () => void;
-  onOpenCalendar: () => void;
-  onAddAppointment: (apt: Omit<Appointment, 'id'>) => void;
-  onUpdateAppointment: (apt: Appointment) => void;
-  onConvertToWorkOrder: (apt: Appointment) => void;
-}
+export const CommandCenter: React.FC = () => {
+  const {
+    workOrders, appointments, setView, setSelectedOrder,
+    handleAddAppointment, handleUpdateAppointment, handleConvertAppointmentToWorkOrder
+  } = useApp();
 
-export const CommandCenter: React.FC<CommandCenterProps> = ({
-  workOrders,
-  appointments,
-  customers,
-  onSelectOrder,
-  onCreateNewWO,
-  onOpenCalendar,
-  onAddAppointment,
-  onUpdateAppointment,
-  onConvertToWorkOrder,
-}) => {
+  const onSelectOrder = (order: WorkOrder) => { setSelectedOrder(order); setView('DETAIL'); };
+  const onCreateNewWO = () => setView('CREATE');
+  const onOpenCalendar = () => setView('CALENDAR');
+
   const [currentDate] = useState(new Date());
 
   // Stats calculation
@@ -40,7 +27,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
   const weekDays = useMemo(() => {
     const start = new Date(currentDate);
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1); 
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
     start.setDate(diff);
     return Array.from({ length: 5 }, (_, i) => {
       const d = new Date(start);
@@ -49,7 +36,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
     });
   }, [currentDate]);
 
-  const activeWorkOrders = workOrders.filter(o => 
+  const activeWorkOrders = workOrders.filter(o =>
     o.status !== WorkOrderStatus.PICKED_UP && o.status !== WorkOrderStatus.READY
   );
 
@@ -96,7 +83,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
             <h2 className="text-2xl font-rugged uppercase text-zinc-100 tracking-wide">Bay Load</h2>
             <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Active Repair Floor</span>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeWorkOrders.length === 0 ? (
               <div className="col-span-full py-20 text-center border-2 border-dashed border-zinc-800 rounded-sm">
@@ -104,7 +91,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
               </div>
             ) : (
               activeWorkOrders.map((wo) => (
-                <div 
+                <div
                   key={wo.id}
                   onClick={() => onSelectOrder(wo)}
                   className="bg-zinc-900 border border-zinc-800 p-5 rounded-sm hover:border-orange-600 cursor-pointer transition-all group relative overflow-hidden"
@@ -146,7 +133,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
             {weekDays.map((day) => {
               const dayApts = appointments.filter(a => new Date(a.startTime).toDateString() === day.toDateString());
               const isToday = day.toDateString() === new Date().toDateString();
-              
+
               return (
                 <div key={day.toISOString()} className={`bg-zinc-900 border rounded-sm p-4 transition-colors ${isToday ? 'border-orange-600 bg-zinc-900/80 shadow-[0_0_15px_rgba(249,115,22,0.1)]' : 'border-zinc-800'}`}>
                   <div className="flex justify-between items-center mb-3">
@@ -158,7 +145,7 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
                     </div>
                     <span className="text-[10px] font-mono text-zinc-700">{day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                   </div>
-                  
+
                   <div className="space-y-2">
                     {dayApts.length === 0 ? (
                       <div className="text-[10px] text-zinc-700 uppercase font-bold italic">No arrivals scheduled</div>
@@ -170,10 +157,10 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
                             <div className="text-[8px] text-zinc-600 uppercase tracking-tighter">{apt.vehicleInfo}</div>
                           </div>
                           <div className="text-right">
-                             <div className="text-[8px] font-mono text-zinc-500 uppercase">{new Date(apt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                             <div className={`text-[7px] font-black uppercase ${APPOINTMENT_COLORS[apt.type].split(' ')[0]} text-white px-1 rounded-sm mt-0.5`}>
-                               {apt.type.split(' ')[1]}
-                             </div>
+                            <div className="text-[8px] font-mono text-zinc-500 uppercase">{new Date(apt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                            <div className={`text-[7px] font-black uppercase ${APPOINTMENT_COLORS[apt.type].split(' ')[0]} text-white px-1 rounded-sm mt-0.5`}>
+                              {apt.type.split(' ')[1]}
+                            </div>
                           </div>
                         </div>
                       ))
@@ -185,12 +172,12 @@ export const CommandCenter: React.FC<CommandCenterProps> = ({
           </div>
 
           <div className="bg-orange-600/5 border border-orange-600/20 p-6 rounded-sm text-center">
-             <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2">Fleet Snapshot</div>
-             <div className="flex justify-around items-center">
-                <SnapshotMetric label="ATV" count={workOrders.filter(w => w.vehicleType === VehicleType.ATV).length} />
-                <SnapshotMetric label="Bike" count={workOrders.filter(w => w.vehicleType === VehicleType.BIKE).length} />
-                <SnapshotMetric label="Sled" count={workOrders.filter(w => w.vehicleType === VehicleType.SLED).length} />
-             </div>
+            <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-2">Fleet Snapshot</div>
+            <div className="flex justify-around items-center">
+              <SnapshotMetric label="ATV" count={workOrders.filter(w => w.vehicleType === VehicleType.ATV).length} />
+              <SnapshotMetric label="Bike" count={workOrders.filter(w => w.vehicleType === VehicleType.BIKE).length} />
+              <SnapshotMetric label="Sled" count={workOrders.filter(w => w.vehicleType === VehicleType.SLED).length} />
+            </div>
           </div>
         </div>
       </div>

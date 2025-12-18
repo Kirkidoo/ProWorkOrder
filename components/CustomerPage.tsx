@@ -1,25 +1,23 @@
-
 import React, { useState, useMemo } from 'react';
-import { Customer, WorkOrder, ViewState } from '../types';
+import { Customer, WorkOrder } from '../types';
 import { Button } from './Button';
 import { VEHICLE_ICONS } from '../constants';
+import { useApp } from '../context/AppContext';
 
-interface CustomerPageProps {
-  customers: Customer[];
-  workOrders: WorkOrder[];
-  onAddCustomer: (customer: Omit<Customer, 'id'>) => void;
-  onStartWorkOrder: (customer: Customer) => void;
-  onBack: () => void;
-}
+export const CustomerPage: React.FC = () => {
+  const {
+    customers, workOrders, handleAddCustomer: onAddCustomer,
+    handleStartWorkOrderFromCustomer: onStartWorkOrder, setView
+  } = useApp();
 
-export const CustomerPage: React.FC<CustomerPageProps> = ({ customers, workOrders, onAddCustomer, onStartWorkOrder, onBack }) => {
+  const onBack = () => setView('COMMAND_CENTER');
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filteredCustomers = useMemo(() => {
-    return customers.filter(c => 
-      c.name.toLowerCase().includes(search.toLowerCase()) || 
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.phone.includes(search)
     );
   }, [customers, search]);
@@ -156,7 +154,7 @@ export const CustomerPage: React.FC<CustomerPageProps> = ({ customers, workOrder
       </div>
 
       <div className="flex-1 min-w-[300px]">
-        <input 
+        <input
           type="text"
           placeholder="Search by name or phone number..."
           className="w-full bg-zinc-950 border border-zinc-800 p-4 text-lg text-zinc-100 outline-none focus:border-orange-500 transition-colors uppercase font-bold rounded-sm shadow-xl"
@@ -170,8 +168,8 @@ export const CustomerPage: React.FC<CustomerPageProps> = ({ customers, workOrder
           <div className="col-span-full py-12 text-center text-zinc-600 italic">No customers found matching your search.</div>
         ) : (
           filteredCustomers.map(c => (
-            <div 
-              key={c.id} 
+            <div
+              key={c.id}
               onClick={() => setSelectedCustomer(c)}
               className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm hover:border-orange-600 cursor-pointer transition-all hover:translate-y-[-4px] shadow-lg group"
             >
@@ -197,7 +195,7 @@ export const CustomerPage: React.FC<CustomerPageProps> = ({ customers, workOrder
       </div>
 
       {isModalOpen && (
-        <CustomerModal 
+        <CustomerModal
           onSave={(data) => { onAddCustomer(data); handleCloseModal(); }}
           onClose={handleCloseModal}
         />
@@ -226,23 +224,23 @@ const CustomerModal = ({ onSave, onClose }: { onSave: (data: any) => void, onClo
         <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="grid grid-cols-2 gap-6">
           <div className="col-span-2">
             <label className={labelClasses}>Full Name</label>
-            <input required className={inputClasses} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+            <input required className={inputClasses} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Phone Number</label>
-            <input required type="tel" className={inputClasses} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+            <input required type="tel" className={inputClasses} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Email Address</label>
-            <input required type="email" className={inputClasses + " lowercase font-normal"} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+            <input required type="email" className={inputClasses + " lowercase font-normal"} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
           </div>
           <div className="col-span-2">
             <label className={labelClasses}>Mailing Address</label>
-            <input required className={inputClasses} value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+            <input required className={inputClasses} value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Preferred Contact</label>
-            <select className={inputClasses} value={formData.preferredContact} onChange={e => setFormData({...formData, preferredContact: e.target.value as any})}>
+            <select className={inputClasses} value={formData.preferredContact} onChange={e => setFormData({ ...formData, preferredContact: e.target.value as any })}>
               <option value="Call">Call</option>
               <option value="Text">Text</option>
             </select>

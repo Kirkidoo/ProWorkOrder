@@ -1,20 +1,16 @@
-
 import React, { useState, useMemo } from 'react';
 import { ModelSchematic, VehicleType } from '../types';
 import { Button } from './Button';
+import { useApp } from '../context/AppContext';
 
-interface SchematicsLibraryProps {
-  schematics: ModelSchematic[];
-  onAddSchematic: (schematic: Omit<ModelSchematic, 'id'>) => void;
-  onBack: () => void;
-}
-
-export const SchematicsLibrary: React.FC<SchematicsLibraryProps> = ({ schematics, onAddSchematic, onBack }) => {
+export const SchematicsLibrary: React.FC = () => {
+  const { schematics, handleAddSchematic: onAddSchematic, setView } = useApp();
+  const onBack = () => setView('COMMAND_CENTER');
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    return schematics.filter(s => 
+    return schematics.filter(s =>
       `${s.year} ${s.make} ${s.model}`.toLowerCase().includes(search.toLowerCase())
     );
   }, [schematics, search]);
@@ -33,7 +29,7 @@ export const SchematicsLibrary: React.FC<SchematicsLibraryProps> = ({ schematics
       </div>
 
       <div className="relative">
-        <input 
+        <input
           className="w-full bg-zinc-900 border-2 border-zinc-800 p-4 text-zinc-100 outline-none focus:border-orange-500 uppercase font-bold text-lg rounded-sm shadow-xl"
           placeholder="Search by Model Name or Year..."
           value={search}
@@ -45,7 +41,7 @@ export const SchematicsLibrary: React.FC<SchematicsLibraryProps> = ({ schematics
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filtered.length === 0 ? (
           <div className="col-span-full py-20 text-center border-2 border-dashed border-zinc-800 rounded-sm">
-             <p className="text-zinc-600 uppercase font-black tracking-widest text-sm italic">No schematics match your search</p>
+            <p className="text-zinc-600 uppercase font-black tracking-widest text-sm italic">No schematics match your search</p>
           </div>
         ) : (
           filtered.map(s => (
@@ -59,7 +55,7 @@ export const SchematicsLibrary: React.FC<SchematicsLibraryProps> = ({ schematics
                 </div>
               </div>
               <div className="p-4 bg-zinc-900 flex gap-2">
-                 <Button variant="secondary" fullWidth size="sm">View Diagram</Button>
+                <Button variant="secondary" fullWidth size="sm">View Diagram</Button>
               </div>
             </div>
           ))
@@ -67,7 +63,7 @@ export const SchematicsLibrary: React.FC<SchematicsLibraryProps> = ({ schematics
       </div>
 
       {isModalOpen && (
-        <UploadModal 
+        <UploadModal
           onSave={(data) => { onAddSchematic(data); setIsModalOpen(false); }}
           onClose={() => setIsModalOpen(false)}
         />
@@ -95,25 +91,25 @@ const UploadModal = ({ onSave, onClose }: { onSave: (data: any) => void; onClose
         <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="grid grid-cols-2 gap-6">
           <div>
             <label className={labelClasses}>Year</label>
-            <input required className={inputClasses} value={formData.year} onChange={e => setFormData({...formData, year: e.target.value})} />
+            <input required className={inputClasses} value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Type</label>
-            <select className={inputClasses} value={formData.vehicleType} onChange={e => setFormData({...formData, vehicleType: e.target.value as any})}>
+            <select className={inputClasses} value={formData.vehicleType} onChange={e => setFormData({ ...formData, vehicleType: e.target.value as any })}>
               {Object.values(VehicleType).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="col-span-2">
             <label className={labelClasses}>Make</label>
-            <input required className={inputClasses} placeholder="Honda, Polaris, etc." value={formData.make} onChange={e => setFormData({...formData, make: e.target.value})} />
+            <input required className={inputClasses} placeholder="Honda, Polaris, etc." value={formData.make} onChange={e => setFormData({ ...formData, make: e.target.value })} />
           </div>
           <div className="col-span-2">
             <label className={labelClasses}>Model Name</label>
-            <input required className={inputClasses} placeholder="CBR 1000RR SP" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
+            <input required className={inputClasses} placeholder="CBR 1000RR SP" value={formData.model} onChange={e => setFormData({ ...formData, model: e.target.value })} />
           </div>
           <div className="col-span-2">
             <label className={labelClasses}>Diagram Image URL</label>
-            <input required className={inputClasses + " normal-case font-normal"} placeholder="https://path-to-diagram.jpg" value={formData.diagramUrl} onChange={e => setFormData({...formData, diagramUrl: e.target.value})} />
+            <input required className={inputClasses + " normal-case font-normal"} placeholder="https://path-to-diagram.jpg" value={formData.diagramUrl} onChange={e => setFormData({ ...formData, diagramUrl: e.target.value })} />
             <p className="text-[9px] text-zinc-600 font-bold mt-2 uppercase">Ensure URL points to a high-resolution JPG or PNG file</p>
           </div>
 

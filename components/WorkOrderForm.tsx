@@ -1,17 +1,15 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { WorkOrder, VehicleType, WorkOrderStatus, Customer, InspectionChecklist, Vehicle } from '../types';
 import { Button } from './Button';
 import { VEHICLE_ICONS } from '../constants';
+import { useApp } from '../context/AppContext';
 
-interface WorkOrderFormProps {
-  onSubmit: (order: Partial<WorkOrder>) => void;
-  onCancel: () => void;
-  initialData?: Partial<WorkOrder> | null;
-  customers: Customer[];
-}
+export const WorkOrderForm: React.FC = () => {
+  const {
+    handleCreateOrder: onSubmit, setView, prepopulatedOrder: initialData, customers
+  } = useApp();
 
-export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel, initialData, customers }) => {
+  const onCancel = () => setView('COMMAND_CENTER');
   const [formData, setFormData] = useState<Partial<WorkOrder>>({
     customerName: '',
     phone: '',
@@ -38,8 +36,8 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
 
   const filteredCustomers = useMemo(() => {
     if (!customerSearch) return [];
-    return customers.filter(c => 
-      c.name.toLowerCase().includes(customerSearch.toLowerCase()) || 
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
       c.phone.includes(customerSearch)
     ).slice(0, 5);
   }, [customers, customerSearch]);
@@ -151,8 +149,8 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
           <div className="flex justify-between items-end">
             <h3 className="text-orange-500 font-rugged text-xl uppercase tracking-wider">Customer Info</h3>
             {formData.customerId && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleClearCustomer}
                 className="text-[10px] font-bold text-zinc-500 uppercase hover:text-red-500 transition-colors"
               >
@@ -165,7 +163,7 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
             <div className="relative">
               <label className={labelClasses}>Lookup Existing Customer</label>
               <div className="relative">
-                <input 
+                <input
                   className={inputClasses}
                   placeholder="Search Name or Phone..."
                   value={customerSearch}
@@ -184,8 +182,8 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
                 <div className="absolute top-full left-0 right-0 z-50 bg-zinc-900 border-2 border-orange-600 mt-1 shadow-2xl rounded-sm max-h-60 overflow-y-auto">
                   {filteredCustomers.length > 0 ? (
                     filteredCustomers.map(c => (
-                      <div 
-                        key={c.id} 
+                      <div
+                        key={c.id}
                         className="p-4 border-b border-zinc-800 hover:bg-zinc-800 cursor-pointer flex justify-between items-center group"
                         onClick={() => handleSelectCustomer(c)}
                       >
@@ -216,7 +214,7 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
             <>
               <div>
                 <label className={labelClasses}>New Customer Name</label>
-                <input 
+                <input
                   required
                   className={inputClasses}
                   placeholder="e.g. John Smith"
@@ -226,7 +224,7 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
               </div>
               <div>
                 <label className={labelClasses}>Contact Phone</label>
-                <input 
+                <input
                   required
                   type="tel"
                   className={inputClasses}
@@ -242,107 +240,107 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
         {/* Unit Info */}
         <section className="space-y-6">
           <div className="flex justify-between items-end">
-             <h3 className="text-orange-500 font-rugged text-xl uppercase tracking-wider">Unit Specs</h3>
-             {formData.customerId && !isAddingNewUnit && (
-               <button 
-                type="button" 
+            <h3 className="text-orange-500 font-rugged text-xl uppercase tracking-wider">Unit Specs</h3>
+            {formData.customerId && !isAddingNewUnit && (
+              <button
+                type="button"
                 onClick={() => setIsAddingNewUnit(true)}
                 className="text-[10px] font-bold text-emerald-500 uppercase hover:text-emerald-400 transition-colors"
-               >
-                 [+ Add New Vehicle]
-               </button>
-             )}
+              >
+                [+ Add New Vehicle]
+              </button>
+            )}
           </div>
 
           {currentCustomer && !isAddingNewUnit && (
             <div className="space-y-4">
-               <label className={labelClasses}>Select from Saved Vehicles</label>
-               <div className="grid grid-cols-1 gap-3">
-                 {currentCustomer.fleet.map((v, i) => (
-                   <div 
-                    key={i} 
+              <label className={labelClasses}>Select from Saved Vehicles</label>
+              <div className="grid grid-cols-1 gap-3">
+                {currentCustomer.fleet.map((v, i) => (
+                  <div
+                    key={i}
                     onClick={() => handleSelectVehicle(v)}
                     className={`bg-zinc-900 border-2 p-4 rounded-sm flex items-center gap-4 transition-all cursor-pointer group ${formData.vin === v.vin ? 'border-orange-500' : 'border-zinc-800 hover:border-zinc-700'}`}
-                   >
-                     <div className={`p-3 bg-zinc-950 rounded-sm ${formData.vin === v.vin ? 'text-orange-500' : 'text-zinc-500 group-hover:text-orange-400'}`}>
-                       {VEHICLE_ICONS[v.type]}
-                     </div>
-                     <div>
-                       <div className="font-bold text-zinc-100 uppercase">{v.year} {v.make}</div>
-                       <div className="text-sm text-zinc-400 uppercase">{v.model}</div>
-                       <div className="text-[10px] font-mono text-zinc-600 mt-1">VIN: {v.vin}</div>
-                     </div>
-                   </div>
-                 ))}
-                 {currentCustomer.fleet.length === 0 && (
-                   <div className="p-4 bg-zinc-900/40 border border-zinc-800 border-dashed text-center text-zinc-600 text-[10px] font-bold uppercase">No vehicles in fleet. Add one below.</div>
-                 )}
-               </div>
+                  >
+                    <div className={`p-3 bg-zinc-950 rounded-sm ${formData.vin === v.vin ? 'text-orange-500' : 'text-zinc-500 group-hover:text-orange-400'}`}>
+                      {VEHICLE_ICONS[v.type]}
+                    </div>
+                    <div>
+                      <div className="font-bold text-zinc-100 uppercase">{v.year} {v.make}</div>
+                      <div className="text-sm text-zinc-400 uppercase">{v.model}</div>
+                      <div className="text-[10px] font-mono text-zinc-600 mt-1">VIN: {v.vin}</div>
+                    </div>
+                  </div>
+                ))}
+                {currentCustomer.fleet.length === 0 && (
+                  <div className="p-4 bg-zinc-900/40 border border-zinc-800 border-dashed text-center text-zinc-600 text-[10px] font-bold uppercase">No vehicles in fleet. Add one below.</div>
+                )}
+              </div>
             </div>
           )}
 
           {(isAddingNewUnit || !formData.customerId) && (
             <div className="space-y-6 animate-in fade-in duration-300">
-               <div>
-                  <label className={labelClasses}>VIN / Serial Number</label>
-                  <input 
-                    required
-                    className={inputClasses + " font-mono"}
-                    placeholder="1HFSC..."
-                    value={formData.vin}
-                    onChange={e => setFormData({ ...formData, vin: e.target.value })}
-                  />
-                  {currentCustomer && (
-                    <p className="text-[9px] text-zinc-600 font-bold mt-1 uppercase">Typing an existing VIN will auto-fill unit specs</p>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClasses}>Year</label>
-                    <input 
-                      required
-                      className={inputClasses}
-                      placeholder="2024"
-                      value={formData.year}
-                      onChange={e => setFormData({ ...formData, year: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Make</label>
-                    <input 
-                      required
-                      className={inputClasses}
-                      placeholder="Honda"
-                      value={formData.make}
-                      onChange={e => setFormData({ ...formData, make: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelClasses}>Model</label>
-                  <input 
-                    required
-                    className={inputClasses}
-                    placeholder="CBR 1000RR"
-                    value={formData.model}
-                    onChange={e => setFormData({ ...formData, model: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className={labelClasses}>Unit Type</label>
-                  <select 
-                    className={inputClasses}
-                    value={formData.vehicleType}
-                    onChange={e => setFormData({ ...formData, vehicleType: e.target.value as VehicleType })}
-                  >
-                    {Object.values(VehicleType).map(v => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-                {formData.customerId && (
-                  <Button variant="ghost" size="sm" onClick={() => setIsAddingNewUnit(false)} fullWidth>Cancel New Vehicle Entry</Button>
+              <div>
+                <label className={labelClasses}>VIN / Serial Number</label>
+                <input
+                  required
+                  className={inputClasses + " font-mono"}
+                  placeholder="1HFSC..."
+                  value={formData.vin}
+                  onChange={e => setFormData({ ...formData, vin: e.target.value })}
+                />
+                {currentCustomer && (
+                  <p className="text-[9px] text-zinc-600 font-bold mt-1 uppercase">Typing an existing VIN will auto-fill unit specs</p>
                 )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClasses}>Year</label>
+                  <input
+                    required
+                    className={inputClasses}
+                    placeholder="2024"
+                    value={formData.year}
+                    onChange={e => setFormData({ ...formData, year: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className={labelClasses}>Make</label>
+                  <input
+                    required
+                    className={inputClasses}
+                    placeholder="Honda"
+                    value={formData.make}
+                    onChange={e => setFormData({ ...formData, make: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClasses}>Model</label>
+                <input
+                  required
+                  className={inputClasses}
+                  placeholder="CBR 1000RR"
+                  value={formData.model}
+                  onChange={e => setFormData({ ...formData, model: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelClasses}>Unit Type</label>
+                <select
+                  className={inputClasses}
+                  value={formData.vehicleType}
+                  onChange={e => setFormData({ ...formData, vehicleType: e.target.value as VehicleType })}
+                >
+                  {Object.values(VehicleType).map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              {formData.customerId && (
+                <Button variant="ghost" size="sm" onClick={() => setIsAddingNewUnit(false)} fullWidth>Cancel New Vehicle Entry</Button>
+              )}
             </div>
           )}
         </section>
@@ -353,10 +351,10 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {(Object.keys(formData.inspection!) as Array<keyof InspectionChecklist>).map((key) => (
               <label key={key} className={`flex flex-col items-center justify-center p-4 border-2 transition-all cursor-pointer rounded-sm ${formData.inspection![key] ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600'}`}>
-                <input 
-                  type="checkbox" 
-                  className="hidden" 
-                  checked={formData.inspection![key]} 
+                <input
+                  type="checkbox"
+                  className="hidden"
+                  checked={formData.inspection![key]}
                   onChange={() => toggleInspection(key)}
                 />
                 <span className="text-[10px] font-black uppercase tracking-widest">{key}</span>
@@ -371,7 +369,7 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ onSubmit, onCancel
           <h3 className="text-orange-500 font-rugged text-xl uppercase tracking-wider">Reason for Visit</h3>
           <div>
             <label className={labelClasses}>Customer Concern / Symptoms</label>
-            <textarea 
+            <textarea
               required
               rows={4}
               className={inputClasses + " normal-case font-normal text-base"}

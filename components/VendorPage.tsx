@@ -1,16 +1,15 @@
-
 import React, { useState } from 'react';
 import { Vendor } from '../types';
 import { Button } from './Button';
+import { useApp } from '../context/AppContext';
 
-interface VendorPageProps {
-  vendors: Vendor[];
-  onAddVendor: (vendor: Omit<Vendor, 'id'>) => void;
-  onUpdateVendor: (vendor: Vendor) => void;
-  onBack: () => void;
-}
+export const VendorPage: React.FC = () => {
+  const {
+    vendors, handleAddVendor: onAddVendor,
+    handleUpdateVendor: onUpdateVendor, setView
+  } = useApp();
 
-export const VendorPage: React.FC<VendorPageProps> = ({ vendors, onAddVendor, onUpdateVendor, onBack }) => {
+  const onBack = () => setView('COMMAND_CENTER');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
 
@@ -39,8 +38,8 @@ export const VendorPage: React.FC<VendorPageProps> = ({ vendors, onAddVendor, on
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {vendors.map((vendor) => (
-          <div 
-            key={vendor.id} 
+          <div
+            key={vendor.id}
             className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm hover:border-orange-500 transition-all cursor-pointer group"
             onClick={() => handleOpenEdit(vendor)}
           >
@@ -48,7 +47,7 @@ export const VendorPage: React.FC<VendorPageProps> = ({ vendors, onAddVendor, on
               <h2 className="text-2xl font-rugged uppercase text-zinc-100 group-hover:text-orange-500 transition-colors">{vendor.name}</h2>
               <div className="bg-zinc-800 px-2 py-1 rounded-sm text-[10px] font-black text-zinc-400">#{vendor.accountNumber}</div>
             </div>
-            
+
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest block">Contact Person</label>
@@ -64,7 +63,7 @@ export const VendorPage: React.FC<VendorPageProps> = ({ vendors, onAddVendor, on
       </div>
 
       {isModalOpen && (
-        <VendorModal 
+        <VendorModal
           vendor={editingVendor}
           onSave={(data) => {
             if (editingVendor) onUpdateVendor({ ...editingVendor, ...data });
@@ -96,21 +95,21 @@ const VendorModal = ({ vendor, onSave, onClose }: { vendor: Vendor | null, onSav
         <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="space-y-4">
           <div>
             <label className={labelClasses}>Company Name</label>
-            <input required className={inputClasses} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+            <input required className={inputClasses} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Account #</label>
-            <input required className={inputClasses} value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} />
+            <input required className={inputClasses} value={formData.accountNumber} onChange={e => setFormData({ ...formData, accountNumber: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Primary Contact</label>
-            <input required className={inputClasses} value={formData.contactPerson} onChange={e => setFormData({...formData, contactPerson: e.target.value})} />
+            <input required className={inputClasses} value={formData.contactPerson} onChange={e => setFormData({ ...formData, contactPerson: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Free Shipping Threshold ($)</label>
-            <input required type="number" className={inputClasses + " text-emerald-500"} value={formData.freeShippingThreshold} onChange={e => setFormData({...formData, freeShippingThreshold: parseFloat(e.target.value) || 0})} />
+            <input required type="number" className={inputClasses + " text-emerald-500"} value={formData.freeShippingThreshold} onChange={e => setFormData({ ...formData, freeShippingThreshold: parseFloat(e.target.value) || 0 })} />
           </div>
-          
+
           <div className="flex gap-4 pt-4">
             <Button type="submit" fullWidth size="lg">Save Supplier</Button>
             <Button type="button" variant="secondary" fullWidth size="lg" onClick={onClose}>Cancel</Button>

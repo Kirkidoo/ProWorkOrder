@@ -3,24 +3,16 @@ import React, { useState, useMemo } from 'react';
 import { Appointment, AppointmentType, Customer } from '../types';
 import { Button } from './Button';
 import { APPOINTMENT_COLORS, BUSINESS_HOURS } from '../constants';
+import { useApp } from '../context/AppContext';
 
-interface CalendarViewProps {
-  appointments: Appointment[];
-  customers: Customer[];
-  onAddAppointment: (apt: Omit<Appointment, 'id'>) => void;
-  onUpdateAppointment: (apt: Appointment) => void;
-  onConvertToWorkOrder: (apt: Appointment) => void;
-  onBack: () => void;
-}
+export const CalendarView: React.FC = () => {
+  const {
+    appointments, customers,
+    handleAddAppointment: onAddAppointment, handleUpdateAppointment: onUpdateAppointment,
+    handleConvertAppointmentToWorkOrder: onConvertToWorkOrder, setView
+  } = useApp();
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ 
-  appointments, 
-  customers, 
-  onAddAppointment, 
-  onUpdateAppointment,
-  onConvertToWorkOrder,
-  onBack 
-}) => {
+  const onBack = () => setView('COMMAND_CENTER');
   const [viewMode, setViewMode] = useState<'WEEK' | 'MONTH'>('WEEK');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,14 +114,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 {weekDays.map(day => {
                   const dayApts = getAptsForDayAndHour(day, hour);
                   return (
-                    <div 
-                      key={day.toISOString()} 
+                    <div
+                      key={day.toISOString()}
                       className="p-1 border-l border-zinc-800/50 relative hover:bg-zinc-800/20 transition-colors cursor-crosshair group"
                       onClick={() => handleSlotClick(day, hour)}
                     >
                       {dayApts.map(apt => (
-                        <div 
-                          key={apt.id} 
+                        <div
+                          key={apt.id}
                           onClick={(e) => handleAptClick(e, apt)}
                           className={`p-2 rounded-sm border-l-4 shadow-lg text-[10px] cursor-pointer mb-1 ${APPOINTMENT_COLORS[apt.type]} hover:scale-[1.02] transition-transform`}
                         >
@@ -162,7 +154,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               ) : (
                 appointments
                   .filter(a => new Date(a.startTime).toDateString() === new Date().toDateString())
-                  .sort((a,b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                  .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
                   .map(apt => (
                     <div key={apt.id} className="p-3 bg-zinc-950 border-l-2 border-orange-600 rounded-sm">
                       <div className="flex justify-between items-start mb-1">
@@ -185,8 +177,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       {isModalOpen && (
-        <AppointmentModal 
-          appointment={selectedApt} 
+        <AppointmentModal
+          appointment={selectedApt}
           slot={selectedSlot}
           customers={customers}
           onSave={(data) => {
@@ -205,15 +197,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   );
 };
 
-const AppointmentModal = ({ 
-  appointment, 
-  slot, 
-  customers, 
-  onSave, 
+const AppointmentModal = ({
+  appointment,
+  slot,
+  customers,
+  onSave,
   onConvertToWorkOrder,
-  onClose 
-}: { 
-  appointment: Appointment | null; 
+  onClose
+}: {
+  appointment: Appointment | null;
   slot: { date: Date; hour: number } | null;
   customers: Customer[];
   onSave: (data: any) => void;
@@ -253,12 +245,12 @@ const AppointmentModal = ({
             </Button>
           )}
         </div>
-        
+
         <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="space-y-4">
           {!appointment && (
             <div className="relative">
               <label className={labelClasses}>Find Customer</label>
-              <input 
+              <input
                 className={inputClasses}
                 placeholder="Type to search..."
                 value={customerSearch}
@@ -267,11 +259,11 @@ const AppointmentModal = ({
               {customerSearch && (
                 <div className="absolute top-full left-0 right-0 z-50 bg-zinc-900 border border-orange-500 mt-1 shadow-2xl">
                   {filteredCustomers.map(c => (
-                    <div 
-                      key={c.id} 
+                    <div
+                      key={c.id}
                       className="p-3 border-b border-zinc-800 hover:bg-zinc-800 cursor-pointer"
                       onClick={() => {
-                        setFormData({...formData, customerName: c.name, phone: c.phone});
+                        setFormData({ ...formData, customerName: c.name, phone: c.phone });
                         setCustomerSearch('');
                       }}
                     >
@@ -287,35 +279,35 @@ const AppointmentModal = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Customer Name</label>
-              <input required className={inputClasses} value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} />
+              <input required className={inputClasses} value={formData.customerName} onChange={e => setFormData({ ...formData, customerName: e.target.value })} />
             </div>
             <div>
               <label className={labelClasses}>Phone</label>
-              <input required className={inputClasses} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+              <input required className={inputClasses} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
             </div>
           </div>
 
           <div>
             <label className={labelClasses}>Vehicle / Unit Info</label>
-            <input required className={inputClasses} placeholder="e.g. 2022 Polaris RZR" value={formData.vehicleInfo} onChange={e => setFormData({...formData, vehicleInfo: e.target.value})} />
+            <input required className={inputClasses} placeholder="e.g. 2022 Polaris RZR" value={formData.vehicleInfo} onChange={e => setFormData({ ...formData, vehicleInfo: e.target.value })} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Service Type</label>
-              <select className={inputClasses} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as AppointmentType})}>
+              <select className={inputClasses} value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value as AppointmentType })}>
                 {Object.values(AppointmentType).map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className={labelClasses}>Duration (Mins)</label>
-              <input type="number" step="30" className={inputClasses} value={formData.durationMinutes} onChange={e => setFormData({...formData, durationMinutes: parseInt(e.target.value) || 60})} />
+              <input type="number" step="30" className={inputClasses} value={formData.durationMinutes} onChange={e => setFormData({ ...formData, durationMinutes: parseInt(e.target.value) || 60 })} />
             </div>
           </div>
 
           <div>
             <label className={labelClasses}>Service Notes</label>
-            <textarea className={inputClasses + " normal-case font-normal h-24"} placeholder="Any special requests or known issues..." value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+            <textarea className={inputClasses + " normal-case font-normal h-24"} placeholder="Any special requests or known issues..." value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} />
           </div>
 
           <div className="flex gap-4 pt-4">

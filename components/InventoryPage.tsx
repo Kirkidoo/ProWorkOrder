@@ -1,20 +1,19 @@
-
 import React, { useState, useMemo } from 'react';
 import { InventoryItem } from '../types';
 import { Button } from './Button';
-
-interface InventoryPageProps {
-  inventory: InventoryItem[];
-  onUpdateInventory: (item: InventoryItem) => void;
-  onAddInventory: (item: Omit<InventoryItem, 'id'>) => void;
-  onBack: () => void;
-}
+import { useApp } from '../context/AppContext';
 
 const CATEGORIES = ['Engine', 'Tires', 'Electrical', 'Suspension', 'Fluids', 'Body', 'Misc'];
 const BRANDS = ['OEM', 'Aftermarket'];
 const VENDORS = ['WPS', 'Parts Unlimited', 'Tucker', 'OEM Honda', 'OEM Yamaha', 'OEM Kawasaki', 'Parts Unlimited', 'Specialty'];
 
-export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdateInventory, onAddInventory, onBack }) => {
+export const InventoryPage: React.FC = () => {
+  const {
+    inventory, handleUpdateInventory: onUpdateInventory,
+    handleAddInventory: onAddInventory, setView
+  } = useApp();
+
+  const onBack = () => setView('COMMAND_CENTER');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,8 +21,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdat
 
   const filteredItems = useMemo(() => {
     return inventory.filter(item => {
-      const matchesSearch = item.partNumber.toLowerCase().includes(search.toLowerCase()) || 
-                           item.description.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = item.partNumber.toLowerCase().includes(search.toLowerCase()) ||
+        item.description.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = categoryFilter === 'ALL' || item.category === categoryFilter;
       return matchesSearch && matchesCategory;
     });
@@ -75,7 +74,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdat
 
       <div className="flex flex-wrap items-center gap-4 bg-zinc-900/50 p-4 border border-zinc-800 rounded-sm">
         <div className="flex-1 min-w-[300px]">
-          <input 
+          <input
             type="text"
             placeholder="Search Part # or Description..."
             className="w-full bg-zinc-950 border border-zinc-800 p-3 text-sm text-zinc-100 outline-none focus:border-orange-500 transition-colors uppercase font-bold"
@@ -85,7 +84,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdat
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Category:</span>
-          <select 
+          <select
             className="bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs font-bold uppercase tracking-wider py-3 px-3 rounded-sm focus:border-orange-500 outline-none transition-colors"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
@@ -117,8 +116,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdat
                 filteredItems.map((item) => {
                   const isLow = item.quantityOnHand <= item.minStock;
                   return (
-                    <tr 
-                      key={item.id} 
+                    <tr
+                      key={item.id}
                       className={`hover:bg-zinc-800/50 transition-colors cursor-pointer group ${isLow ? 'bg-red-950/20' : ''}`}
                       onClick={() => handleOpenEdit(item)}
                     >
@@ -155,14 +154,14 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({ inventory, onUpdat
       </div>
 
       {isModalOpen && (
-        <InventoryModal 
-          item={editingItem} 
+        <InventoryModal
+          item={editingItem}
           onSave={(data) => {
             if (editingItem) onUpdateInventory({ ...editingItem, ...data });
             else onAddInventory(data);
             handleCloseModal();
-          }} 
-          onClose={handleCloseModal} 
+          }}
+          onClose={handleCloseModal}
         />
       )}
     </div>
@@ -189,49 +188,49 @@ const InventoryModal = ({ item, onSave, onClose }: { item: InventoryItem | null,
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[100] backdrop-blur-sm">
       <div className="bg-zinc-900 border-2 border-orange-600 p-8 rounded-sm w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200">
         <h2 className="text-3xl font-rugged uppercase text-zinc-100 mb-8">{item ? 'Edit Part' : 'Add New Inventory'}</h2>
-        
+
         <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="grid grid-cols-2 gap-6">
           <div className="col-span-1">
             <label className={labelClasses}>Part Number</label>
-            <input required className={inputClasses} value={formData.partNumber} onChange={e => setFormData({...formData, partNumber: e.target.value})} />
+            <input required className={inputClasses} value={formData.partNumber} onChange={e => setFormData({ ...formData, partNumber: e.target.value })} />
           </div>
           <div className="col-span-1">
             <label className={labelClasses}>Preferred Vendor</label>
-            <select className={inputClasses} value={formData.preferredVendor} onChange={e => setFormData({...formData, preferredVendor: e.target.value})}>
+            <select className={inputClasses} value={formData.preferredVendor} onChange={e => setFormData({ ...formData, preferredVendor: e.target.value })}>
               {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           <div className="col-span-2">
             <label className={labelClasses}>Description</label>
-            <input required className={inputClasses} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+            <input required className={inputClasses} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
           </div>
           <div>
             <label className={labelClasses}>Category</label>
-            <select className={inputClasses} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+            <select className={inputClasses} value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
             <label className={labelClasses}>Brand</label>
-            <select className={inputClasses} value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})}>
+            <select className={inputClasses} value={formData.brand} onChange={e => setFormData({ ...formData, brand: e.target.value })}>
               {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           <div>
             <label className={labelClasses}>Quantity On Hand</label>
-            <input required type="number" className={inputClasses} value={formData.quantityOnHand} onChange={e => setFormData({...formData, quantityOnHand: parseInt(e.target.value) || 0})} />
+            <input required type="number" className={inputClasses} value={formData.quantityOnHand} onChange={e => setFormData({ ...formData, quantityOnHand: parseInt(e.target.value) || 0 })} />
           </div>
           <div>
             <label className={labelClasses}>Min Stock</label>
-            <input required type="number" className={inputClasses} value={formData.minStock} onChange={e => setFormData({...formData, minStock: parseInt(e.target.value) || 0})} />
+            <input required type="number" className={inputClasses} value={formData.minStock} onChange={e => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })} />
           </div>
           <div className="col-span-1">
             <label className={labelClasses}>Bin Location</label>
-            <input required className={inputClasses} value={formData.binLocation} onChange={e => setFormData({...formData, binLocation: e.target.value})} />
+            <input required className={inputClasses} value={formData.binLocation} onChange={e => setFormData({ ...formData, binLocation: e.target.value })} />
           </div>
           <div className="col-span-1">
             <label className={labelClasses}>Unit Price ($)</label>
-            <input required type="number" step="0.01" className={inputClasses + " text-orange-500 text-2xl"} value={formData.unitPrice} onChange={e => setFormData({...formData, unitPrice: parseFloat(e.target.value) || 0})} />
+            <input required type="number" step="0.01" className={inputClasses + " text-orange-500 text-2xl"} value={formData.unitPrice} onChange={e => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) || 0 })} />
           </div>
 
           <div className="col-span-2 flex gap-4 mt-4">
