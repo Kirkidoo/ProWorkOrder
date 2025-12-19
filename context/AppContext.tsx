@@ -113,7 +113,7 @@ const MOCK_ORDERS: WorkOrder[] = [
 ];
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [view, setView] = useState<ViewState>('COMMAND_CENTER');
+  const [view, setView] = useState<ViewState>('CALENDAR');
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(MOCK_ORDERS);
   const [inventory, setInventory] = useState<InventoryItem[]>(MOCK_INVENTORY);
   const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
