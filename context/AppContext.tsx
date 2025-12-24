@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { WorkOrder, ViewState, VehicleType, WorkOrderStatus, InventoryItem, Customer, PartsOrder, OrderStatus, Vehicle, Appointment, Vendor, ModelSchematic } from '../types';
 import { customerService } from '../services/customerService';
 import { workOrderService } from '../services/workOrderService';
@@ -113,16 +113,38 @@ const MOCK_ORDERS: WorkOrder[] = [
 ];
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [view, setView] = useState<ViewState>('COMMAND_CENTER');
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(MOCK_ORDERS);
-  const [inventory, setInventory] = useState<InventoryItem[]>(MOCK_INVENTORY);
-  const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
-  const [vendors, setVendors] = useState<Vendor[]>(MOCK_VENDORS);
-  const [schematics, setSchematics] = useState<ModelSchematic[]>(MOCK_SCHEMATICS);
-  const [partsOrders, setPartsOrders] = useState<PartsOrder[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [view, setView] = useState<ViewState>('OVERVIEW');
+
+  // Persistence helpers
+  const getInitialState = <T,>(key: string, defaultValue: T): T => {
+    const saved = localStorage.getItem(key);
+    if (!saved) return defaultValue;
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error(`Error loading ${key} from storage`, e);
+      return defaultValue;
+    }
+  };
+
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => getInitialState('workOrders', MOCK_ORDERS));
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => getInitialState('inventory', MOCK_INVENTORY));
+  const [customers, setCustomers] = useState<Customer[]>(() => getInitialState('customers', MOCK_CUSTOMERS));
+  const [vendors, setVendors] = useState<Vendor[]>(() => getInitialState('vendors', MOCK_VENDORS));
+  const [schematics, setSchematics] = useState<ModelSchematic[]>(() => getInitialState('schematics', MOCK_SCHEMATICS));
+  const [partsOrders, setPartsOrders] = useState<PartsOrder[]>(() => getInitialState('partsOrders', []));
+  const [appointments, setAppointments] = useState<Appointment[]>(() => getInitialState('appointments', []));
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [prepopulatedOrder, setPrepopulatedOrder] = useState<Partial<WorkOrder> | null>(null);
+
+  // Persistence effects
+  useEffect(() => { localStorage.setItem('workOrders', JSON.stringify(workOrders)); }, [workOrders]);
+  useEffect(() => { localStorage.setItem('inventory', JSON.stringify(inventory)); }, [inventory]);
+  useEffect(() => { localStorage.setItem('customers', JSON.stringify(customers)); }, [customers]);
+  useEffect(() => { localStorage.setItem('vendors', JSON.stringify(vendors)); }, [vendors]);
+  useEffect(() => { localStorage.setItem('schematics', JSON.stringify(schematics)); }, [schematics]);
+  useEffect(() => { localStorage.setItem('partsOrders', JSON.stringify(partsOrders)); }, [partsOrders]);
+  useEffect(() => { localStorage.setItem('appointments', JSON.stringify(appointments)); }, [appointments]);
 
   const handleCreateOrder = (data: Partial<WorkOrder>) => {
     const vehicle: Vehicle = {

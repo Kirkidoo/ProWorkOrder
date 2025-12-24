@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useApp } from './context/AppContext';
+import { UnifiedDashboard } from './components/UnifiedDashboard';
 import { CommandCenter } from './components/CommandCenter';
 import { Dashboard } from './components/Dashboard';
 import { WorkOrderForm } from './components/WorkOrderForm';
@@ -20,7 +21,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-orange-500 selection:text-white flex flex-col overflow-hidden">
       <nav className="bg-zinc-900 border-b-2 border-orange-600 sticky top-0 z-50 px-6 py-4 shadow-2xl shrink-0">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('COMMAND_CENTER')}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('OVERVIEW')}>
             <div className="bg-orange-600 p-2 transform -skew-x-12">
               <svg className="w-6 h-6 text-white transform skew-x-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -30,8 +31,7 @@ const App: React.FC = () => {
             <span className="text-2xl font-rugged tracking-tighter uppercase">PowerLog <span className="text-orange-600">Pro</span></span>
           </div>
           <div className="hidden md:flex items-center gap-4">
-            <button onClick={() => setView('COMMAND_CENTER')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'COMMAND_CENTER' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Command</button>
-            <button onClick={() => setView('DASHBOARD')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'DASHBOARD' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Grid</button>
+            <button onClick={() => setView('OVERVIEW')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'OVERVIEW' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Overview</button>
             <button onClick={() => setView('INVENTORY')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'INVENTORY' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Inventory</button>
             <button onClick={() => setView('ORDERS')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'ORDERS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Parts</button>
             <button onClick={() => setView('SCHEMATICS')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'SCHEMATICS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Library</button>
@@ -42,6 +42,7 @@ const App: React.FC = () => {
       </nav>
 
       <main className="flex-1 max-w-7xl mx-auto px-6 py-6 w-full overflow-hidden">
+        {view === 'OVERVIEW' && <UnifiedDashboard />}
         {view === 'COMMAND_CENTER' && <CommandCenter />}
         {view === 'DASHBOARD' && <Dashboard />}
         {view === 'CALENDAR' && <CalendarView />}
@@ -88,13 +89,13 @@ const App: React.FC = () => {
       </main>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900 border-t-2 border-orange-600 p-4 flex justify-around z-50">
-        <button onClick={() => setView('COMMAND_CENTER')} className={`${view === 'COMMAND_CENTER' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
+        <button onClick={() => setView('OVERVIEW')} className={`${view === 'OVERVIEW' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
-          <span className="text-[10px] font-bold uppercase mt-1">Command</span>
+          <span className="text-[10px] font-bold uppercase mt-1">Home</span>
         </button>
-        <button onClick={() => setView('DASHBOARD')} className={`${view === 'DASHBOARD' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" /></svg>
-          <span className="text-[10px] font-bold uppercase mt-1">Grid</span>
+        <button onClick={() => setView('CALENDAR')} className={`${view === 'CALENDAR' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" /></svg>
+          <span className="text-[10px] font-bold uppercase mt-1">Calendar</span>
         </button>
         <button onClick={() => setView('ORDERS')} className={`${view === 'ORDERS' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>

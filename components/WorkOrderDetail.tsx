@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { WorkOrder, WorkOrderStatus, Part, ServiceNote, LaborEntry, InventoryItem, PartsOrder, OrderStatus, Vendor, ModelSchematic } from '../types';
-import { STATUS_COLORS, STATUS_SEQUENCE, VEHICLE_ICONS, DEFAULT_SHOP_RATE, SHOP_NAME, COMMON_LABOR_TASKS } from '../constants';
+import { WorkOrderStatus, Part, ServiceNote, LaborEntry, InventoryItem } from '../types';
+import { STATUS_COLORS, STATUS_SEQUENCE, DEFAULT_SHOP_RATE, COMMON_LABOR_TASKS } from '../constants';
 import { Button } from './Button';
 import { getDiagnosticSuggestions } from '../services/geminiService';
 import { DiagramViewerModal } from './DiagramViewerModal';
 import { useApp } from '../context/AppContext';
+import { ServiceLog } from './ServiceLog';
+import { LaborTracker } from './LaborTracker';
+import { PartsLookup } from './PartsLookup';
+import { AiDiagnosticAssist } from './AiDiagnosticAssist';
+import { ErrorBoundary } from './ErrorBoundary';
+
 
 interface AiSuggestions {
   potentialCauses: string[];
@@ -24,7 +30,6 @@ export const WorkOrderDetail: React.FC = () => {
   if (!order) return null;
 
   const [activeTab, setActiveTab] = useState<'LOG' | 'LABOR' | 'PARTS' | 'PHOTOS' | 'AI'>('LOG');
-  const [newNote, setNewNote] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestions | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [partSearch, setPartSearch] = useState('');
@@ -65,11 +70,7 @@ export const WorkOrderDetail: React.FC = () => {
     onUpdate({ ...order, status: newStatus });
   };
 
-  const handleAddNote = (e?: React.FormEvent, manualContent?: string) => {
-    if (e) e.preventDefault();
-    const content = manualContent || newNote;
-    if (!content.trim()) return;
-
+  const handleAddNote = (content: string) => {
     const note: ServiceNote = {
       id: Math.random().toString(36).substr(2, 9),
       timestamp: new Date().toLocaleString(),
@@ -77,11 +78,22 @@ export const WorkOrderDetail: React.FC = () => {
       content: content
     };
     onUpdate({ ...order, notes: [note, ...order.notes] });
-    if (!manualContent) setNewNote('');
   };
 
-  const copyToNotes = (text: string, prefix: string = "FOLLOW-UP CHECK") => {
-    handleAddNote(undefined, `[AI ${prefix}]: ${text}`);
+  const handleDeleteNote = (noteId: string) => {
+    if (!window.confirm("DELETE THIS NOTE?")) return;
+    onUpdate({ ...order, notes: order.notes.filter(n => n.id !== noteId) });
+  };
+
+  const handleEditNote = (noteId: string, content: string) => {
+    onUpdate({
+      ...order,
+      notes: order.notes.map(n => n.id === noteId ? { ...n, content } : n)
+    });
+  };
+
+  const copyToNotes = (text: string, prefix: string) => {
+    handleAddNote(`[AI ${prefix}]: ${text}`);
     alert(`${prefix} added to Service Log`);
   };
 
@@ -171,7 +183,6 @@ export const WorkOrderDetail: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-        {/* Main Tabs Area */}
         <div className="xl:col-span-3 space-y-6">
           <div className="flex border-b border-zinc-800 overflow-x-auto no-scrollbar">
             {(['LOG', 'LABOR', 'PARTS', 'PHOTOS', 'AI'] as const).map(tab => (
@@ -188,241 +199,45 @@ export const WorkOrderDetail: React.FC = () => {
 
           <div className="min-h-[400px]">
             {activeTab === 'LOG' && (
-              <div className="space-y-6 animate-in slide-in-from-left-4">
-                <form onSubmit={handleAddNote} className="space-y-3">
-                  <textarea
-                    className="w-full bg-zinc-950 border-2 border-zinc-800 p-4 rounded-sm outline-none focus:border-orange-500 text-zinc-100"
-                    placeholder="Add service update or internal note..."
-                    rows={3}
-                    value={newNote}
-                    onChange={e => setNewNote(e.target.value)}
-                  />
-                  <div className="flex justify-end">
-                    <Button type="submit">Post Update</Button>
-                  </div>
-                </form>
-
-                <div className="space-y-4">
-                  {order.notes.map(note => (
-                    <div key={note.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-sm relative group">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] font-black uppercase text-orange-500 tracking-widest">{note.author}</span>
-                        <span className="text-[10px] font-mono text-zinc-600">{note.timestamp}</span>
-                      </div>
-                      <p className="text-zinc-300 whitespace-pre-wrap">{note.content}</p>
-                    </div>
-                  ))}
-                  {order.notes.length === 0 && <p className="text-center py-10 text-zinc-700 uppercase font-black tracking-widest italic">No service updates logged yet.</p>}
-                </div>
-              </div>
+              <ServiceLog
+                notes={order.notes}
+                onAddNote={handleAddNote}
+                onDeleteNote={handleDeleteNote}
+                onEditNote={handleEditNote}
+              />
             )}
 
             {activeTab === 'LABOR' && (
-              <div className="space-y-8 animate-in slide-in-from-left-4">
-                {/* Punch Clock */}
-                <div className="bg-zinc-900 border-2 border-zinc-800 p-8 rounded-sm text-center shadow-2xl relative overflow-hidden">
-                  <div className="relative z-10">
-                    <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4">Technician Time Tracking</div>
-                    <div className={`text-7xl font-rugged mb-6 transition-colors ${isPunchedIn ? 'text-emerald-500 animate-pulse' : 'text-zinc-100'}`}>
-                      {new Date(elapsedSeconds * 1000).toISOString().substr(11, 8)}
-                    </div>
-                    <div className="flex justify-center gap-4">
-                      {!isPunchedIn ? (
-                        <Button size="xl" onClick={() => { setIsPunchedIn(true); setPunchInTime(Date.now()); }} className="w-48 bg-emerald-600 border-emerald-600">PUNCH IN</Button>
-                      ) : (
-                        <Button size="xl" variant="danger" onClick={handlePunchOut} className="w-48">PUNCH OUT</Button>
-                      )}
-                    </div>
-                  </div>
-                  {isPunchedIn && <div className="absolute inset-0 bg-emerald-500/5 animate-pulse"></div>}
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-xl font-rugged uppercase text-zinc-100 border-b border-zinc-800 pb-2">Applied Labor</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {COMMON_LABOR_TASKS.map(task => (
-                      <button
-                        key={task}
-                        onClick={() => handleAddLabor(task, 0.5)}
-                        className="p-4 bg-zinc-950 border border-zinc-900 hover:border-orange-500 text-left transition-all group"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="text-zinc-300 font-bold uppercase text-xs">{task}</span>
-                          <span className="text-orange-500 font-black text-[10px] opacity-0 group-hover:opacity-100">+ Add 0.5h</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-sm overflow-hidden mt-6">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-zinc-950 text-zinc-600 font-black uppercase text-[10px]">
-                        <tr>
-                          <th className="px-4 py-3">Task</th>
-                          <th className="px-4 py-3">Tech</th>
-                          <th className="px-4 py-3">Hours</th>
-                          <th className="px-4 py-3 text-right">Ext.</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800">
-                        {order.laborEntries.map(entry => (
-                          <tr key={entry.id}>
-                            <td className="px-4 py-3 text-zinc-300 uppercase font-bold text-xs">{entry.description}</td>
-                            <td className="px-4 py-3 text-zinc-500">{entry.technician}</td>
-                            <td className="px-4 py-3 font-mono">{entry.hours}</td>
-                            <td className="px-4 py-3 text-right font-mono">${(entry.hours * entry.rate).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
+              <LaborTracker
+                laborEntries={order.laborEntries}
+                isPunchedIn={isPunchedIn}
+                elapsedSeconds={elapsedSeconds}
+                onPunchIn={() => { setIsPunchedIn(true); setPunchInTime(Date.now()); }}
+                onPunchOut={handlePunchOut}
+                onAddLabor={handleAddLabor}
+              />
             )}
 
             {activeTab === 'PARTS' && (
-              <div className="space-y-6 animate-in slide-in-from-left-4">
-                <div className="relative">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mb-2 block">Stock Lookup</label>
-                  <input
-                    className="w-full bg-zinc-950 border-2 border-zinc-800 p-4 rounded-sm outline-none focus:border-orange-500 uppercase font-bold"
-                    placeholder="Search inventory by Part # or Description..."
-                    value={partSearch}
-                    onChange={e => setPartSearch(e.target.value)}
-                  />
-                  {partSearch && (
-                    <div className="absolute top-full left-0 right-0 z-50 bg-zinc-900 border-2 border-orange-500 mt-1 shadow-2xl">
-                      {inventory.filter(i => i.partNumber.toLowerCase().includes(partSearch.toLowerCase()) || i.description.toLowerCase().includes(partSearch.toLowerCase())).slice(0, 5).map(item => (
-                        <div key={item.id} className="p-4 border-b border-zinc-800 hover:bg-zinc-800 cursor-pointer flex justify-between items-center" onClick={() => handleAddPart(item)}>
-                          <div>
-                            <div className="font-mono text-orange-500 font-bold">{item.partNumber}</div>
-                            <div className="text-xs text-zinc-400">{item.description}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[10px] font-black text-emerald-500 uppercase">{item.quantityOnHand > 0 ? `Stock: ${item.quantityOnHand}` : 'OUT OF STOCK'}</div>
-                            <div className="text-[10px] font-bold text-zinc-500 uppercase">Loc: {item.binLocation}</div>
-                          </div>
-                        </div>
-                      ))}
-                      <div
-                        className="p-4 bg-zinc-950 text-center cursor-pointer hover:bg-zinc-800 border-t border-zinc-800"
-                        onClick={() => { setIsSpecialOrderModalOpen(true); }}
-                      >
-                        <span className="text-[10px] font-black uppercase text-orange-600">+ Special Order Item</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-zinc-900 border border-zinc-800 rounded-sm overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-zinc-950 text-zinc-600 font-black uppercase text-[10px]">
-                      <tr>
-                        <th className="px-4 py-3">Part #</th>
-                        <th className="px-4 py-3">Description</th>
-                        <th className="px-4 py-3">Qty</th>
-                        <th className="px-4 py-3 text-right">Ext.</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {order.parts.map(part => (
-                        <tr key={part.id}>
-                          <td className="px-4 py-3 font-mono text-orange-500 font-bold">{part.partNumber}</td>
-                          <td className="px-4 py-3 text-zinc-300 text-xs">{part.description}</td>
-                          <td className="px-4 py-3 font-mono">{part.quantity}</td>
-                          <td className="px-4 py-3 text-right font-mono">${(part.price * part.quantity).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                      {order.parts.length === 0 && <tr><td colSpan={4} className="px-4 py-10 text-center text-zinc-700 uppercase font-black italic">No parts applied.</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <PartsLookup
+                parts={order.parts}
+                inventory={inventory}
+                partSearch={partSearch}
+                onPartSearchChange={setPartSearch}
+                onAddPart={handleAddPart}
+                onOpenSpecialOrder={() => setIsSpecialOrderModalOpen(true)}
+              />
             )}
 
             {activeTab === 'AI' && (
-              <div className="space-y-6 animate-in slide-in-from-left-4 pb-12">
-                <div className="bg-zinc-900 border-2 border-orange-600/30 p-8 rounded-sm text-center relative overflow-hidden">
-                  <div className="relative z-10">
-                    <h3 className="text-3xl font-rugged uppercase text-zinc-100 mb-2">AI Diagnostic Assist</h3>
-                    <p className="text-zinc-500 text-sm max-w-xl mx-auto mb-8 uppercase font-bold tracking-widest">Consulting expert system based on unit specs and technician log.</p>
-                    <Button
-                      size="xl"
-                      onClick={handleRequestAiDiagnostics}
-                      disabled={loadingAi}
-                      className="min-w-64"
-                    >
-                      {loadingAi ? 'CONSULTING EXPERT SYSTEM...' : 'ANALYZE SYMPTOMS'}
-                    </Button>
-                  </div>
-                  <div className="absolute -bottom-10 -right-10 opacity-5 pointer-events-none">
-                    <svg className="w-64 h-64" fill="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
-                  </div>
-                </div>
-
-                {aiSuggestions && (
-                  <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-zinc-900 border-l-4 border-orange-500 p-6 shadow-xl">
-                        <h4 className="text-orange-500 font-rugged text-xl uppercase mb-4">Potential Causes</h4>
-                        <ul className="space-y-3">
-                          {aiSuggestions.potentialCauses.map((cause, i) => (
-                            <li key={i} className="flex gap-3 text-zinc-300 text-sm">
-                              <span className="text-orange-600 font-bold">0{i + 1}</span>
-                              {cause}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="bg-zinc-900 border-l-4 border-emerald-500 p-6 shadow-xl">
-                        <h4 className="text-emerald-500 font-rugged text-xl uppercase mb-4">Suggested Steps</h4>
-                        <ul className="space-y-3">
-                          {aiSuggestions.suggestedSteps.map((step, i) => (
-                            <li key={i} className="flex flex-col gap-2">
-                              <div className="flex gap-3 text-zinc-300 text-sm">
-                                <span className="text-emerald-600 font-bold">0{i + 1}</span>
-                                {step}
-                              </div>
-                              <button
-                                onClick={() => copyToNotes(step, "DIAGNOSTIC STEP")}
-                                className="text-[9px] font-black uppercase text-zinc-600 hover:text-emerald-500 self-end transition-colors"
-                              >
-                                [Add to Work Log]
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {/* NEW: Recommended Follow-up Section */}
-                    <div className="bg-zinc-900 border-2 border-blue-600/30 p-6 shadow-2xl rounded-sm">
-                      <div className="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-2">
-                        <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <h4 className="text-blue-500 font-rugged text-2xl uppercase tracking-wider">Recommended Follow-up Questions</h4>
-                      </div>
-                      <div className="space-y-4">
-                        {aiSuggestions.missingInformation.map((info, i) => (
-                          <div key={i} className="flex items-center justify-between group bg-zinc-950/50 p-3 border border-zinc-900 rounded-sm hover:border-blue-900/50 transition-all">
-                            <div className="flex items-start gap-4 pr-4">
-                              <div className="w-5 h-5 rounded-full border-2 border-blue-600/30 flex items-center justify-center shrink-0 mt-0.5">
-                                <div className="w-2 h-2 rounded-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                              </div>
-                              <p className="text-zinc-300 text-sm italic">"{info}"</p>
-                            </div>
-                            <button
-                              onClick={() => copyToNotes(info, "FOLLOW-UP CHECK")}
-                              className="bg-blue-600/10 border border-blue-600/30 text-blue-400 text-[10px] font-black uppercase px-3 py-1.5 rounded-sm hover:bg-blue-600 hover:text-white transition-all whitespace-nowrap"
-                            >
-                              Copy to Notes
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ErrorBoundary>
+                <AiDiagnosticAssist
+                  loadingAi={loadingAi}
+                  aiSuggestions={aiSuggestions}
+                  onRequestDiagnostics={handleRequestAiDiagnostics}
+                  onCopyToNotes={copyToNotes}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'PHOTOS' && (
@@ -443,7 +258,6 @@ export const WorkOrderDetail: React.FC = () => {
 
         {/* Sidebar Info */}
         <div className="space-y-6">
-          {/* Schematic Card */}
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm shadow-xl space-y-4">
             <h3 className="font-rugged text-xl uppercase text-orange-500 border-b border-zinc-800 pb-2">Unit Schematic</h3>
             {matchedSchematic ? (
@@ -464,7 +278,6 @@ export const WorkOrderDetail: React.FC = () => {
             )}
           </div>
 
-          {/* Inspection Card */}
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-sm shadow-xl">
             <h3 className="font-rugged text-xl uppercase text-zinc-100 border-b border-zinc-800 pb-2 mb-4">Intake Inspection</h3>
             <div className="space-y-2">
@@ -479,7 +292,6 @@ export const WorkOrderDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Totals Card */}
           <div className="bg-zinc-900 border-t-4 border-orange-600 p-6 rounded-sm shadow-2xl">
             <h3 className="font-rugged text-xl uppercase text-zinc-100 mb-4">Order Summary</h3>
             <div className="space-y-2 mb-4">

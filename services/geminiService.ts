@@ -4,15 +4,15 @@ import { ServiceNote } from "../types";
 
 export const getDiagnosticSuggestions = async (concern: string, unitDetails: string, notes: ServiceNote[]) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
+    const ai = new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_GEMINI_API_KEY });
+
     // Format existing notes for context
-    const notesContext = notes.length > 0 
+    const notesContext = notes.length > 0
       ? notes.map(n => `- ${n.timestamp}: ${n.content}`).join('\n')
       : "No service notes logged yet.";
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `As an expert Powersports mechanic, analyze this customer concern and unit details.
       
       Unit: ${unitDetails}
