@@ -10,6 +10,8 @@ import { LaborTracker } from './LaborTracker';
 import { PartsLookup } from './PartsLookup';
 import { AiDiagnosticAssist } from './AiDiagnosticAssist';
 import { ErrorBoundary } from './ErrorBoundary';
+import { InvoicePreview } from './InvoicePreview';
+import { TechnicianWorkOrder } from './TechnicianWorkOrder';
 
 
 interface AiSuggestions {
@@ -25,7 +27,7 @@ export const WorkOrderDetail: React.FC = () => {
     handleAddSchematic: onAddSchematic, setView, setSelectedOrder
   } = useApp();
 
-  const onBack = () => { setView('COMMAND_CENTER'); setSelectedOrder(null); };
+  const onBack = () => { setView('OVERVIEW'); setSelectedOrder(null); };
 
   if (!order) return null;
 
@@ -36,6 +38,8 @@ export const WorkOrderDetail: React.FC = () => {
   const [isSpecialOrderModalOpen, setIsSpecialOrderModalOpen] = useState(false);
   const [isDiagramOpen, setIsDiagramOpen] = useState(false);
   const [isAttachDiagramOpen, setIsAttachDiagramOpen] = useState(false);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [isTechSheetOpen, setIsTechSheetOpen] = useState(false);
 
   // Timer State
   const [isPunchedIn, setIsPunchedIn] = useState(false);
@@ -308,10 +312,27 @@ export const WorkOrderDetail: React.FC = () => {
                 <span className="font-rugged text-2xl text-orange-500">${totals.total.toFixed(2)}</span>
               </div>
             </div>
-            <Button fullWidth variant="primary" size="lg">Generate Invoice</Button>
+            <div className="grid grid-cols-2 gap-4">
+              <Button fullWidth variant="primary" size="lg" onClick={() => setIsInvoiceOpen(true)}>Invoice</Button>
+              <Button fullWidth variant="secondary" size="lg" onClick={() => setIsTechSheetOpen(true)}>Tech Sheet</Button>
+            </div>
           </div>
         </div>
       </div>
+
+      {isTechSheetOpen && (
+        <TechnicianWorkOrder
+          order={order}
+          onClose={() => setIsTechSheetOpen(false)}
+        />
+      )}
+
+      {isInvoiceOpen && (
+        <InvoicePreview
+          order={order}
+          onClose={() => setIsInvoiceOpen(false)}
+        />
+      )}
 
       {isDiagramOpen && matchedSchematic && (
         <DiagramViewerModal

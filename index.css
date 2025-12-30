@@ -13,3 +13,63 @@
 .font-rugged {
   font-family: var(--font-rugged);
 }
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Hide navigation, sidebars, and other non-print elements */
+  nav, .md\:hidden, button, select, .xl\:col-span-1 {
+    display: none !important;
+  }
+
+  /* Ensure the main content takes full width */
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Reset layout for print */
+  .fixed {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+  }
+
+  .bg-zinc-900, .bg-zinc-950 {
+    background-color: white !important;
+  }
+
+  .text-zinc-100, .text-zinc-300, .text-zinc-400, .text-zinc-500 {
+    color: black !important;
+  }
+
+  /* Force headers to be visible and correctly colored if needed */
+  .text-orange-600 {
+    color: #ea580c !important; /* Tailwind orange-600 */
+    -webkit-print-color-adjust: exact;
+  }
+
+  .bg-black {
+    background-color: black !important;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Specifically target the invoice preview modal container */
+  .fixed.inset-0.bg-black\/90 {
+    display: block !important;
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 9999;
+  }
+}
