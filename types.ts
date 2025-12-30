@@ -159,4 +159,4 @@ export interface WorkOrder {
   createdAt: string;
 }
 
-export type ViewState = 'OVERVIEW' | 'COMMAND_CENTER' | 'DASHBOARD' | 'CREATE' | 'DETAIL' | 'INVENTORY' | 'CUSTOMERS' | 'ORDERS' | 'VENDORS' | 'CALENDAR' | 'ARCHIVE' | 'SCHEMATICS';
+export type ViewState = 'OVERVIEW' | 'DASHBOARD' | 'CREATE' | 'DETAIL' | 'INVENTORY' | 'CUSTOMERS' | 'ORDERS' | 'VENDORS' | 'ARCHIVE' | 'SCHEMATICS';

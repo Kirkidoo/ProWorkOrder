@@ -2,14 +2,12 @@
 import React from 'react';
 import { useApp } from './context/AppContext';
 import { UnifiedDashboard } from './components/UnifiedDashboard';
-import { CommandCenter } from './components/CommandCenter';
 import { WorkOrderForm } from './components/WorkOrderForm';
 import { WorkOrderDetail } from './components/WorkOrderDetail';
 import { InventoryPage } from './components/InventoryPage';
 import { CustomerPage } from './components/CustomerPage';
 import { PartsOrderPage } from './components/PartsOrderPage';
 import { VendorPage } from './components/VendorPage';
-import { CalendarView } from './components/CalendarView';
 import { ArchivePage } from './components/ArchivePage';
 import { SchematicsLibrary } from './components/SchematicsLibrary';
 
@@ -33,8 +31,6 @@ const App: React.FC = () => {
           </div>
           <div className="hidden md:flex items-center gap-4">
             <button onClick={() => setView('OVERVIEW')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'OVERVIEW' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Overview</button>
-            <button onClick={() => setView('CALENDAR')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'CALENDAR' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Calendar</button>
-            <button onClick={() => setView('COMMAND_CENTER')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'COMMAND_CENTER' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Command</button>
             <button onClick={() => setView('INVENTORY')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'INVENTORY' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Inventory</button>
             <button onClick={() => setView('ORDERS')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'ORDERS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Parts</button>
             <button onClick={() => setView('SCHEMATICS')} className={`font-bold uppercase text-[10px] tracking-widest transition-colors ${view === 'SCHEMATICS' ? 'text-orange-500 underline decoration-2 underline-offset-8' : 'text-zinc-400 hover:text-white'}`}>Library</button>
@@ -46,8 +42,6 @@ const App: React.FC = () => {
 
       <main className="flex-1 max-w-7xl mx-auto px-6 py-6 w-full overflow-hidden">
         {view === 'OVERVIEW' && <UnifiedDashboard />}
-        {view === 'COMMAND_CENTER' && <CommandCenter />}
-        {view === 'CALENDAR' && <CalendarView />}
         {view === 'CREATE' && (
           <div className="overflow-y-auto h-full scrollbar-thin">
             <WorkOrderForm />
@@ -94,10 +88,6 @@ const App: React.FC = () => {
         <button onClick={() => setView('OVERVIEW')} className={`${view === 'OVERVIEW' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
           <span className="text-[10px] font-bold uppercase mt-1">Home</span>
-        </button>
-        <button onClick={() => setView('CALENDAR')} className={`${view === 'CALENDAR' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-          <span className="text-[10px] font-bold uppercase mt-1">Calendar</span>
         </button>
         <button onClick={() => setView('ORDERS')} className={`${view === 'ORDERS' ? 'text-orange-500' : 'text-zinc-500'} flex flex-col items-center`}>
           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
