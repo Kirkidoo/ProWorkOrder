@@ -73,7 +73,7 @@ export const TechnicianWorkOrder: React.FC<TechnicianWorkOrderProps> = ({ order,
                                 </tr>
                             </thead>
                             <tbody>
-                                {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                {[1, 2, 3, 4].map(i => (
                                     <tr key={i} className="border-b border-zinc-100">
                                         <td className="py-6"></td>
                                         <td className="py-6 border-l border-zinc-100"></td>
@@ -98,7 +98,7 @@ export const TechnicianWorkOrder: React.FC<TechnicianWorkOrderProps> = ({ order,
                                 </tr>
                             </thead>
                             <tbody>
-                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(i => (
                                     <tr key={i} className="border-b border-zinc-100">
                                         <td className="py-5 w-48"></td>
                                         <td className="py-5 pl-4 border-l border-zinc-100"></td>
